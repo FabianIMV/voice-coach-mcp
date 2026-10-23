@@ -1,0 +1,36 @@
+{
+  "nota": "Dispositivo de entrada simulado (este entorno no tiene micrófono).",
+  "llamada": {
+    "tool": "grabar_audio",
+    "argumentos": {
+      "segundos": 3,
+      "nombre": "toma"
+    }
+  },
+  "respuesta": {
+    "audio": "~/VoiceCoach/grabaciones/toma-2.wav",
+    "duracion_s": 3.0,
+    "sample_rate": 16000,
+    "dispositivo": "Micrófono falso",
+    "niveles": {
+      "pico_dbfs": -120.0,
+      "rms_dbfs": -120.0,
+      "snr_db": null,
+      "clipping_pct": 0.0
+    },
+    "confianza": {
+      "valor": 0.0,
+      "nivel": "baja"
+    },
+    "advertencias": [
+      {
+        "codigo": "sin_permiso_microfono",
+        "detalle": "macOS no está entregando audio del micrófono. Revisa Ajustes del Sistema → Privacidad y seguridad → Micrófono y habilita la app que ejecuta el servidor (Claude, o la terminal donde corre Claude Code); luego reinicia esa app."
+      },
+      {
+        "codigo": "silencio_digital",
+        "detalle": "El audio es silencio absoluto (todo ceros)."
+      }
+    ]
+  }
+}

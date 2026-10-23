@@ -50,8 +50,7 @@ def test_recorta_listas_anidadas_y_textos(config, tmp_path):
         audio=tmp_path / "b.wav",
         tool="discurso",
         config=config,
-        recortables=[Recortable("pausas.lista", lambda p: p["dur"])],
-        textos=["texto"],
+        recortables=[Recortable("pausas.lista", lambda p: p["dur"]), "texto"],
     )
     salida = json.loads(texto)
     assert len(texto.encode()) <= config.max_bytes_respuesta

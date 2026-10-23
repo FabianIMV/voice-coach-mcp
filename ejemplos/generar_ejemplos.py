@@ -2,8 +2,9 @@
 
 Las tools de análisis se llaman a través del servidor real por stdio (como lo haría Claude).
 `grabar_audio` necesita un micrófono: aquí se ejecuta en proceso con un dispositivo simulado.
-La voz de los ejemplos de habla se sintetiza con espeak-ng (requiere `espeak-ng` instalado y el
-extra `habla`).
+La voz de los ejemplos de habla se sintetiza con espeak-ng y la de pronunciación con Piper (voz
+LJSpeech, de dominio público; se ejecuta con uvx). Requiere `espeak-ng` y los extras `habla` y
+`pronunciacion`.
 
 Uso: uv run python ejemplos/generar_ejemplos.py
 """
@@ -38,6 +39,11 @@ DISCURSO_EN = (
     'Um, so today I want to talk about, uh, public speaking. <break time="1000ms"/> You know, '
     "most people feel nervous, like, before a big talk. I mean, that is completely normal. "
     '<break time="800ms"/> The key is to practice with real feedback.'
+)
+
+FRASE = "I think the very best things in life are free."
+FRASE_CON_ERRORES = (
+    "I sink the berry best sings in life are free."  # θ→s y v→b, típicos de hispanohablantes
 )
 
 # Melodía original de 8 compases simples (sin derechos), 0,5 s por negra.
@@ -101,6 +107,10 @@ def preparar_audios() -> dict[str, Path]:
     )
     rutas["discurso_es"] = tts.sintetizar(DISCURSO_ES, "es", AUDIO / "discurso_es.wav")
     rutas["discurso_en"] = tts.sintetizar(DISCURSO_EN, "en", AUDIO / "discurso_en.wav", 160)
+    rutas["pron_correcta"] = tts.sintetizar_piper(FRASE, AUDIO / "pronunciacion_correcta.wav")
+    rutas["pron_errores"] = tts.sintetizar_piper(
+        FRASE_CON_ERRORES, AUDIO / "pronunciacion_errores.wav"
+    )
     return rutas
 
 
@@ -134,6 +144,16 @@ async def llamar_por_stdio(rutas: dict[str, Path], temporal: str) -> dict[str, d
             "metricas_discurso_es",
             "metricas_discurso",
             {"audio": str(rutas["discurso_es"]), "idioma": "es"},
+        ),
+        (
+            "evaluar_pronunciacion_correcta",
+            "evaluar_pronunciacion",
+            {"audio": str(rutas["pron_correcta"]), "texto_esperado": FRASE},
+        ),
+        (
+            "evaluar_pronunciacion_con_errores",
+            "evaluar_pronunciacion",
+            {"audio": str(rutas["pron_errores"]), "texto_esperado": FRASE},
         ),
         (
             "metricas_discurso_en",

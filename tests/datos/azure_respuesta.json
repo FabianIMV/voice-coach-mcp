@@ -1,0 +1,59 @@
+{
+  "Id": "ejemplo",
+  "RecognitionStatus": "Success",
+  "Offset": 3000000,
+  "Duration": 21000000,
+  "DisplayText": "I sink so.",
+  "NBest": [
+    {
+      "Confidence": 0.91,
+      "Lexical": "i sink so really",
+      "PronunciationAssessment": {
+        "AccuracyScore": 71.0,
+        "FluencyScore": 88.0,
+        "CompletenessScore": 75.0,
+        "PronScore": 76.4
+      },
+      "Words": [
+        {
+          "Word": "i", "Offset": 3000000, "Duration": 2000000,
+          "PronunciationAssessment": {"AccuracyScore": 98.0, "ErrorType": "None"},
+          "Phonemes": [
+            {"Phoneme": "aɪ", "PronunciationAssessment": {"AccuracyScore": 98.0, "NBestPhonemes": [{"Phoneme": "aɪ", "Score": 98.0}]}}
+          ]
+        },
+        {
+          "Word": "think", "Offset": 5500000, "Duration": 4000000,
+          "PronunciationAssessment": {"AccuracyScore": 62.0, "ErrorType": "Mispronunciation"},
+          "Phonemes": [
+            {"Phoneme": "θ", "PronunciationAssessment": {"AccuracyScore": 15.0, "NBestPhonemes": [{"Phoneme": "s", "Score": 90.0}]}},
+            {"Phoneme": "ɪ", "PronunciationAssessment": {"AccuracyScore": 95.0, "NBestPhonemes": [{"Phoneme": "ɪ", "Score": 95.0}]}},
+            {"Phoneme": "ŋ", "PronunciationAssessment": {"AccuracyScore": 55.0, "NBestPhonemes": [{"Phoneme": "ŋ", "Score": 55.0}]}},
+            {"Phoneme": "k", "PronunciationAssessment": {"AccuracyScore": 100.0, "NBestPhonemes": [{"Phoneme": "k", "Score": 100.0}]}}
+          ]
+        },
+        {
+          "Word": "really", "Offset": 10000000, "Duration": 3000000,
+          "PronunciationAssessment": {"AccuracyScore": 0.0, "ErrorType": "Insertion"}
+        },
+        {
+          "Word": "so", "Offset": 13500000, "Duration": 3000000,
+          "PronunciationAssessment": {"AccuracyScore": 100.0, "ErrorType": "None"},
+          "Phonemes": [
+            {"Phoneme": "s", "PronunciationAssessment": {"AccuracyScore": 100.0, "NBestPhonemes": [{"Phoneme": "s", "Score": 100.0}]}},
+            {"Phoneme": "oʊ", "PronunciationAssessment": {"AccuracyScore": 100.0, "NBestPhonemes": [{"Phoneme": "oʊ", "Score": 100.0}]}}
+          ]
+        },
+        {
+          "Word": "much", "Offset": 0, "Duration": 0,
+          "PronunciationAssessment": {"AccuracyScore": 0.0, "ErrorType": "Omission"},
+          "Phonemes": [
+            {"Phoneme": "m", "PronunciationAssessment": {"AccuracyScore": 0.0}},
+            {"Phoneme": "ʌ", "PronunciationAssessment": {"AccuracyScore": 0.0}},
+            {"Phoneme": "tʃ", "PronunciationAssessment": {"AccuracyScore": 0.0}}
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -66,21 +66,50 @@ def _contenedor(salida: dict, ruta: str) -> tuple[dict, str]:
     return actual, clave
 
 
+def _recortar_lista(salida: dict, r: Recortable, limite: int) -> None:
+    contenedor, clave = _contenedor(salida, r.clave)
+    items = contenedor.get(clave) or []
+    bajo, alto = 0, len(items)
+    while bajo < alto:  # mayor n que quepa
+        medio = (bajo + alto + 1) // 2
+        contenedor[clave] = _tomar(items, medio, r.prioridad)
+        contenedor[f"{clave}_mostradas"] = f"{medio} de {len(items)}"
+        if tamano(salida) <= limite:
+            bajo = medio
+        else:
+            alto = medio - 1
+    contenedor[clave] = _tomar(items, bajo, r.prioridad)
+    contenedor[f"{clave}_mostradas"] = f"{bajo} de {len(items)}"
+
+
+def _recortar_texto(salida: dict, ruta: str, limite: int) -> None:
+    contenedor, clave = _contenedor(salida, ruta)
+    texto = contenedor.get(clave) or ""
+    bajo, alto = 0, len(texto)
+    while bajo < alto:
+        medio = (bajo + alto + 1) // 2
+        contenedor[clave] = texto[:medio] + "…"
+        if tamano(salida) <= limite:
+            bajo = medio
+        else:
+            alto = medio - 1
+    contenedor[clave] = texto[:bajo] + "…"
+
+
 def ajustar(
     resultado: dict,
     *,
     audio: Path,
     tool: str,
     config: Config,
-    recortables: list[Recortable] = (),
-    textos: list[str] = (),
+    recortables: list[Recortable | str] = (),
 ) -> str:
     """Devuelve el JSON del resultado dentro de `config.max_bytes_respuesta`.
 
     Si hay que recortar, el resultado completo se escribe en disco y se indica en
-    `detalle_completo`. Las listas se recortan en el orden dado (admiten rutas como
-    "pausas.lista") y cada una recortada lleva `<clave>_mostradas: "n de total"`. Si aún no
-    cabe, se acortan los textos indicados en `textos`.
+    `detalle_completo`. Se recorta en el orden dado hasta que quepa: cada `Recortable` es una
+    lista (admite rutas como "pausas.lista") que conserva sus items más prioritarios y queda
+    marcada con `<clave>_mostradas: "n de total"`; cada `str` es la ruta de un texto que se acorta.
     """
     limite = config.max_bytes_respuesta
     if tamano(resultado) <= limite:
@@ -90,36 +119,11 @@ def ajustar(
     destino.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
     salida = dict(resultado)
     salida["detalle_completo"] = str(destino)
-
     for r in recortables:
         if tamano(salida) <= limite:
             break
-        contenedor, clave = _contenedor(salida, r.clave)
-        items = contenedor.get(clave) or []
-        bajo, alto = 0, len(items)
-        while bajo < alto:  # mayor n que quepa
-            medio = (bajo + alto + 1) // 2
-            contenedor[clave] = _tomar(items, medio, r.prioridad)
-            contenedor[f"{clave}_mostradas"] = f"{medio} de {len(items)}"
-            if tamano(salida) <= limite:
-                bajo = medio
-            else:
-                alto = medio - 1
-        contenedor[clave] = _tomar(items, bajo, r.prioridad)
-        contenedor[f"{clave}_mostradas"] = f"{bajo} de {len(items)}"
-
-    for ruta in textos:
-        if tamano(salida) <= limite:
-            break
-        contenedor, clave = _contenedor(salida, ruta)
-        texto = contenedor.get(clave) or ""
-        bajo, alto = 0, len(texto)
-        while bajo < alto:
-            medio = (bajo + alto + 1) // 2
-            contenedor[clave] = texto[:medio] + "…"
-            if tamano(salida) <= limite:
-                bajo = medio
-            else:
-                alto = medio - 1
-        contenedor[clave] = texto[:bajo] + "…"
+        if isinstance(r, str):
+            _recortar_texto(salida, r, limite)
+        else:
+            _recortar_lista(salida, r, limite)
     return a_json(salida)

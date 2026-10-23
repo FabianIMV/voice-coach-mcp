@@ -41,6 +41,16 @@ def descargar_modelos() -> None:
         print("  listo", file=sys.stderr)
     except ErrorUsuario as e:
         print(f"  omitido: {e}", file=sys.stderr)
+    try:
+        from .pronunciacion.fonemas import esperados_por_palabra
+        from .pronunciacion.wav2vec2 import MODELO, cargar_modelo
+
+        print(f"Modelo de fonemas '{MODELO}' y espeak-ng…", file=sys.stderr)
+        cargar_modelo()
+        esperados_por_palabra(["hello"], "en-US")
+        print("  listo", file=sys.stderr)
+    except ErrorUsuario as e:
+        print(f"  omitido: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

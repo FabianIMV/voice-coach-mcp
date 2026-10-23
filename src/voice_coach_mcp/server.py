@@ -14,6 +14,7 @@ from .canto.afinacion import analizar
 from .config import cargar_config
 from .errores import ErrorUsuario
 from .habla.discurso import analizar_discurso, analizar_transcripcion
+from .pronunciacion.evaluacion import evaluar
 from .salida import a_json
 
 log = logging.getLogger("voice_coach_mcp")
@@ -151,6 +152,29 @@ async def metricas_discurso(audio: str, idioma: str, umbral_pausa_s: float = 0.7
     """
     config = cargar_config()
     return await anyio.to_thread.run_sync(analizar_discurso, audio, config, idioma, umbral_pausa_s)
+
+
+@mcp.tool()
+@_errores_legibles
+async def evaluar_pronunciacion(audio: str, texto_esperado: str, idioma: str = "en-US") -> str:
+    """Compara los fonemas pronunciados con los esperados para un texto leído en voz alta (inglés).
+
+    Args:
+        audio: ruta del audio o nombre devuelto por grabar_audio (hasta 60 s; mejor frases cortas).
+        texto_esperado: el texto exacto que se leyó.
+        idioma: "en-US" (por defecto) o "en-GB".
+
+    Devuelve `resumen` (puntaje_global 0–100, palabras_con_errores, conteo de errores por tipo,
+    confusiones_frecuentes esperado→detectado) y `palabras`: palabra, puntaje, t (s) y, si hay
+    errores, esperado/detectado en IPA y errores [{tipo: sustitucion|omision|insercion,
+    esperado, detectado}]; `omitida` si no se dijo. `fonemas` trae ambas secuencias completas.
+    Puntaje por palabra = 100·(1 − (S + O + 0,5·I)/fonemas esperados). Variantes alofónicas
+    (flap, schwa, r de enlace) no cuentan como error. La advertencia texto_no_coincide indica que
+    probablemente se leyó otro texto. Backend: wav2vec2 local, o Azure si
+    VOICE_COACH_PRONUNCIACION_BACKEND=azure (entonces el audio se envía a Azure).
+    """
+    config = cargar_config()
+    return await anyio.to_thread.run_sync(evaluar, audio, texto_esperado, config, idioma)
 
 
 @mcp.prompt()

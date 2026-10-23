@@ -18,7 +18,7 @@ pronunciación en inglés y oratoria.
 |---|---|---|
 | 1 | Esqueleto, `grabar_audio`, `analizar_afinacion`, prompts | ✅ |
 | 2 | `transcribir`, `metricas_discurso` | ✅ |
-| 3 | `evaluar_pronunciacion` (wav2vec2 local / Azure opcional) | pendiente |
+| 3 | `evaluar_pronunciacion` (wav2vec2 local / Azure opcional) | ✅ |
 | 4 | Skill `coach-de-voz` | pendiente |
 
 ## Requisitos
@@ -26,16 +26,21 @@ pronunciación en inglés y oratoria.
 - macOS (o Linux) con micrófono
 - [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`); uv instala Python 3.12 por su cuenta
 - Opcional: `brew install ffmpeg` para leer `.m4a`/`.aac` (p. ej., notas de voz del iPhone). WAV, FLAC, OGG y MP3 se leen sin ffmpeg.
+- Para pronunciación: `brew install espeak-ng` y un Mac con Apple Silicon y macOS 14 o superior (requisito de PyTorch).
 
 ```bash
 git clone https://github.com/fabianimv/voice-coach-mcp.git
 cd voice-coach-mcp
-uv sync --extra habla               # canto + transcripción y oratoria
-uv run voice-coach-mcp descargar-modelos   # opcional: baja Whisper ahora y no en la 1.ª llamada
+uv sync --extra habla --extra pronunciacion   # todo (o solo los extras que uses)
+uv run voice-coach-mcp descargar-modelos      # opcional: baja los modelos ahora y no en la 1.ª llamada
 ```
 
-Extras: `habla` agrega faster-whisper para `transcribir` y `metricas_discurso` (el modelo
-`small` pesa ~480 MB y se descarga una sola vez). Con solo `uv sync` funcionan la grabación y la
+Extras:
+- `habla`: faster-whisper, para `transcribir` y `metricas_discurso`. El modelo `small` pesa ~480 MB.
+- `pronunciacion`: torch, transformers y phonemizer, para `evaluar_pronunciacion`. El modelo de fonemas pesa ~1,2 GB.
+- `azure` (opcional): SDK de Azure Speech, para usar el backend de Azure en `evaluar_pronunciacion`.
+
+Los modelos se descargan una sola vez. Con solo `uv sync` funcionan la grabación y la
 afinación; si llamas a una tool que necesita un extra que no instalaste, el error indica el
 comando para instalarlo. La primera llamada a `analizar_afinacion` tarda unos segundos más porque
 compila el detector de pitch (numba).
@@ -223,12 +228,77 @@ y 7 muletillas:
 La voz de espeak-ng es muy plana, por eso sale `monotono: true` y `variacion_baja: true`.
 [Ejemplo en inglés](ejemplos/salidas/metricas_discurso_en.json).
 
+### `evaluar_pronunciacion(audio, texto_esperado, idioma="en-US")`
+
+Compara lo que se dijo con lo que se debía decir, fonema por fonema:
+
+1. **Fonemas esperados**: `texto_esperado` se convierte a fonemas IPA con phonemizer + espeak-ng, palabra por palabra.
+2. **Fonemas detectados**: el modelo local [`facebook/wav2vec2-lv-60-espeak-cv-ft`](https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft) reconoce los fonemas del audio, sin pasar por palabras. En un Mac con Apple Silicon usa la GPU (MPS).
+3. **Alineación**: ambas secuencias se alinean por distancia de edición. Una sustitución entre vocal y consonante cuesta más, así la alineación prefiere emparejar vocal con vocal.
+4. **Puntaje**: por palabra, `100·(1 − (S + O + 0,5·I)/fonemas esperados)`, donde S son sustituciones, O omisiones e I inserciones.
+
+No cuentan como error las variantes normales del inglés americano:
+
+- flap (`butter` con ɾ o t);
+- schwa (ə/ɐ, ə/ɪ);
+- "the" como ðə o ði;
+- "r de enlace" (`weather‿is`);
+- golpe glótico.
+
+| Campo | Significado |
+|---|---|
+| `resumen.puntaje_global` | 0–100 sobre todos los fonemas |
+| `resumen.errores` | conteo de `sustitucion`, `omision`, `insercion` |
+| `resumen.confusiones_frecuentes` | pares esperado → detectado más repetidos (p. ej., θ → s) |
+| `palabras[]` | `palabra`, `puntaje`, `t`; si hay errores, `esperado`/`detectado` (IPA) y `errores`; `omitida` si no se dijo |
+| `fonemas` | ambas secuencias completas |
+| advertencia `texto_no_coincide` | más del 60 % de los fonemas difiere: probablemente se leyó otro texto |
+
+Salida real ([completa](ejemplos/salidas/evaluar_pronunciacion_con_errores.json)). El audio es una
+[voz sintética](ejemplos/audio/pronunciacion_errores.wav) que dice *"I sink the berry best sings in life
+are free"*, mientras el texto esperado es *"I think the very best things in life are free"*:
+
+```json
+{"audio":"ejemplos/audio/pronunciacion_errores.wav","duracion_s":3.26,"idioma":"en-US","backend":"wav2vec2-local",
+ "resumen":{"puntaje_global":90,"palabras":10,"palabras_con_errores":3,
+   "errores":{"sustitucion":3,"omision":0,"insercion":0},
+   "confusiones_frecuentes":[{"esperado":"θ","detectado":"s","veces":2},{"esperado":"v","detectado":"b","veces":1}]},
+ "palabras":[{"palabra":"I","puntaje":100,"t":0.36},
+   {"palabra":"think","puntaje":75,"t":0.56,"esperado":"θ ɪ ŋ k","detectado":"s ɪ ŋ k",
+    "errores":[{"tipo":"sustitucion","esperado":"θ","detectado":"s"}]},
+   {"palabra":"the","puntaje":100,"t":0.84},
+   {"palabra":"very","puntaje":75,"t":0.96,"esperado":"v ɛ ɹ i","detectado":"b ɛ ɹ i",
+    "errores":[{"tipo":"sustitucion","esperado":"v","detectado":"b"}]}, "…"],
+ "fonemas":{"esperados":"aɪ θ ɪ ŋ k ð ə v ɛ ɹ i b ɛ s t θ ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː",
+            "detectados":"aɪ s ɪ ŋ k ð ə b ɛ ɹ i b ɛ s t s ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː"},
+ "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+```
+
+La [misma frase bien leída](ejemplos/salidas/evaluar_pronunciacion_correcta.json) obtiene 100.
+
+**Limitaciones.**
+
+- El modelo usa el contexto de la frase. A veces "corrige" un error si la palabra correcta es mucho más probable: por ejemplo, puede oír *think* en "I sink the weather is nice". Por eso conviene combinar frases con pares mínimos aislados.
+- Hasta 60 s por audio. Rinde mejor con frases completas que con palabras sueltas.
+- Está pensado para inglés (en-US / en-GB).
+
+**Backend Azure (opcional).** Requiere `uv sync --extra azure` y estas variables:
+
+- `VOICE_COACH_PRONUNCIACION_BACKEND=azure`
+- `AZURE_SPEECH_KEY`
+- `AZURE_SPEECH_REGION`
+
+Usa Azure Pronunciation Assessment (alfabeto IPA, granularidad de fonema, detección de palabras
+omitidas e insertadas) y normaliza la respuesta al mismo formato. Agrega `fluidez` y `completitud`
+al resumen. Con este backend **el audio se envía a Azure**; el backend local no envía nada fuera
+del equipo. Admite hasta 30 s por evaluación.
+
 ## Prompts MCP
 
 | Prompt | Argumentos | Uso |
 |---|---|---|
 | `sesion_canto` | `nivel`, `objetivo`, `referencia_midi` | calentamiento → ejercicio → `analizar_afinacion` → feedback → siguiente ejercicio |
-| `sesion_pronunciacion` | `nivel`, `foco` | pares mínimos y frases (requiere `evaluar_pronunciacion`, fase 3) |
+| `sesion_pronunciacion` | `nivel`, `foco` | pares mínimos y frases con `evaluar_pronunciacion` |
 | `sesion_oratoria` | `contexto`, `duracion_objetivo_s` | ritmo, pausas, muletillas y variación de tono/volumen con `metricas_discurso` |
 
 En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; en Claude Code, como `/mcp__voice-coach__sesion_canto`.
@@ -245,6 +315,10 @@ En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; e
 | `VOICE_COACH_WHISPER_DEVICE` | `cpu` | `cpu` o `cuda` (CTranslate2 no usa la GPU de los Mac) |
 | `VOICE_COACH_WHISPER_COMPUTE_TYPE` | `int8` | tipo de cómputo de CTranslate2 |
 | `VOICE_COACH_MULETILLAS` | — | TOML propio con listas de muletillas |
+| `VOICE_COACH_PRONUNCIACION_BACKEND` | `local` | `local` (wav2vec2) o `azure` |
+| `VOICE_COACH_PRONUNCIACION_DEVICE` | `auto` | `auto` (MPS si existe), `cpu` o `mps` |
+| `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | — | credenciales del backend Azure |
+| `PHONEMIZER_ESPEAK_LIBRARY` | autodetectada | ruta a `libespeak-ng.dylib` si no está en `/opt/homebrew/lib` ni en `/usr/local/lib` |
 
 ## Cómo mide la afinación
 
@@ -273,7 +347,7 @@ respiración entre ellas, cuentan como una sola.
 
 ```bash
 uv run pytest                     # tests rápidos (audio sintético, micrófono simulado)
-uv run pytest -m modelos          # Whisper real (tiny) sobre voz de espeak-ng; requiere --extra habla y espeak-ng
+uv run pytest -m modelos          # modelos reales: Whisper tiny (voz de espeak-ng) y wav2vec2 (voz de Piper vía uvx)
 uv run ruff check . && uv run ruff format --check .
 uv run python ejemplos/generar_ejemplos.py   # regenera ejemplos/ llamando al servidor por stdio
 ```
@@ -289,8 +363,15 @@ src/voice_coach_mcp/
   audio/           carga, grabación y calidad del audio
   canto/           pitch, teoría musical, referencia MIDI, afinación
   habla/           transcripción (faster-whisper), métricas de discurso, listas de muletillas
+  pronunciacion/   fonemas esperados, alineación, backends wav2vec2 y Azure
   salida.py        presupuesto de 2 KB y JSON de detalle
   prompts.py       textos de los prompts de sesión
 tests/             tests con audio y MIDI sintéticos
 ejemplos/          audios sintéticos y salidas reales de cada tool
 ```
+
+## Licencias
+
+El repositorio todavía no declara una licencia propia. Ten en cuenta que algunas dependencias
+opcionales son GPL-3.0: phonemizer (extra `pronunciacion`) y la herramienta espeak-ng. Los ejemplos de voz se generaron con espeak-ng y con Piper (voz
+LJSpeech, de dominio público); Piper no es una dependencia del proyecto.

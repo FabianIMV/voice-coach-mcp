@@ -68,8 +68,7 @@ def analizar_transcripcion(audio: str, config: Config, idioma: str | None = None
         audio=ruta,
         tool="transcripcion",
         config=config,
-        recortables=[Recortable("palabras"), Recortable("segmentos")],
-        textos=["texto"],
+        recortables=[Recortable("palabras"), Recortable("segmentos"), "texto"],
     )
 
 

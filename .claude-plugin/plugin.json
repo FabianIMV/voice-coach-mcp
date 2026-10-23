@@ -1,7 +1,7 @@
 {
   "name": "voice-coach",
   "displayName": "Voice Coach",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Gives Claude ears: local pitch, pronunciation and public-speaking analysis plus a coaching skill that runs sessions and tracks your progress.",
   "author": {
     "name": "FabianIMV",
@@ -24,6 +24,7 @@
       "command": "uv",
       "args": [
         "run",
+        "--frozen",
         "--directory",
         "${CLAUDE_PLUGIN_ROOT}",
         "--extra",

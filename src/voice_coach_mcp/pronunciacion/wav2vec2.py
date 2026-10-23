@@ -28,6 +28,14 @@ def _dispositivo() -> str:
     return "mps" if torch.backends.mps.is_available() else "cpu"
 
 
+def desde_cache_o_red(cargar, *args, **kwargs):
+    """Primero solo desde la caché local (sin red, funciona offline); si falta, descarga."""
+    try:
+        return cargar(*args, local_files_only=True, **kwargs)
+    except OSError:
+        return cargar(*args, **kwargs)
+
+
 def cargar_modelo():
     with _candado:
         if "modelo" not in _cache:
@@ -37,10 +45,13 @@ def cargar_modelo():
                 raise ErrorUsuario(
                     "Faltan torch/transformers. Instálalos con: uv sync --extra pronunciacion"
                 ) from e
+            # El repo del modelo solo tiene pytorch_model.bin en main: sin esto, transformers
+            # descarga además una copia en safetensors (1,26 GB) desde un PR del repo.
+            os.environ.setdefault("DISABLE_SAFETENSORS_CONVERSION", "1")
             dispositivo = _dispositivo()
-            procesador = AutoProcessor.from_pretrained(MODELO)
-            modelo = AutoModelForCTC.from_pretrained(MODELO).eval().to(dispositivo)
-            _cache["modelo"] = (procesador, modelo, dispositivo)
+            procesador = desde_cache_o_red(AutoProcessor.from_pretrained, MODELO)
+            modelo = desde_cache_o_red(AutoModelForCTC.from_pretrained, MODELO)
+            _cache["modelo"] = (procesador, modelo.eval().to(dispositivo), dispositivo)
         return _cache["modelo"]
 
 

@@ -21,10 +21,12 @@ def main() -> None:
     empaquetar.add_argument("destino", nargs="?", default="coach-de-voz.zip")
     args = parser.parse_args()
 
-    # stdout es el canal del protocolo MCP: todo log va a stderr.
+    # stdout es el canal del protocolo MCP: todo log va a stderr. Las librerías (httpx,
+    # huggingface_hub…) solo muestran advertencias; el servidor, también sus INFO.
     logging.basicConfig(
-        stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+        stream=sys.stderr, level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s"
     )
+    logging.getLogger("voice_coach_mcp").setLevel(logging.INFO)
 
     if args.comando in (None, "servidor"):
         from .server import mcp

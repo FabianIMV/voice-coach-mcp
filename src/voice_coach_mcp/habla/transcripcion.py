@@ -78,11 +78,16 @@ def modelo(config: Config):
                 raise ErrorUsuario(
                     "Falta faster-whisper. Instálalo con: uv sync --extra habla"
                 ) from e
-            _modelos[clave] = WhisperModel(
-                config.whisper_modelo,
-                device=config.whisper_dispositivo,
-                compute_type=config.whisper_tipo_computo,
-            )
+            opciones = {
+                "device": config.whisper_dispositivo,
+                "compute_type": config.whisper_tipo_computo,
+            }
+            try:  # primero desde la caché local, sin red; si falta, se descarga
+                _modelos[clave] = WhisperModel(
+                    config.whisper_modelo, local_files_only=True, **opciones
+                )
+            except Exception:  # faster-whisper no expone un tipo de error propio para "no está"
+                _modelos[clave] = WhisperModel(config.whisper_modelo, **opciones)
         return _modelos[clave]
 
 

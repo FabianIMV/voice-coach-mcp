@@ -17,7 +17,7 @@ pronunciación en inglés y oratoria.
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 | Esqueleto, `grabar_audio`, `analizar_afinacion`, prompts | ✅ |
-| 2 | `transcribir`, `metricas_discurso` | pendiente |
+| 2 | `transcribir`, `metricas_discurso` | ✅ |
 | 3 | `evaluar_pronunciacion` (wav2vec2 local / Azure opcional) | pendiente |
 | 4 | Skill `coach-de-voz` | pendiente |
 
@@ -30,10 +30,15 @@ pronunciación en inglés y oratoria.
 ```bash
 git clone https://github.com/fabianimv/voice-coach-mcp.git
 cd voice-coach-mcp
-uv sync
+uv sync --extra habla               # canto + transcripción y oratoria
+uv run voice-coach-mcp descargar-modelos   # opcional: baja Whisper ahora y no en la 1.ª llamada
 ```
 
-La primera llamada a `analizar_afinacion` tarda unos segundos más porque compila el detector de pitch (numba).
+Extras: `habla` agrega faster-whisper para `transcribir` y `metricas_discurso` (el modelo
+`small` pesa ~480 MB y se descarga una sola vez). Con solo `uv sync` funcionan la grabación y la
+afinación; si llamas a una tool que necesita un extra que no instalaste, el error indica el
+comando para instalarlo. La primera llamada a `analizar_afinacion` tarda unos segundos más porque
+compila el detector de pitch (numba).
 
 ## Registrar el servidor
 
@@ -157,13 +162,74 @@ Otras salidas reales:
 - [Modo tonalidad (Sol mayor)](ejemplos/salidas/analizar_afinacion_tonalidad.json): el F4 cantado aparece como F#4 a −95 cents, porque en Sol mayor corresponde F#.
 - [Con referencia MIDI](ejemplos/salidas/analizar_afinacion_referencia_midi.json): melodía cantada una octava abajo, que entra 1 s tarde, con una nota 33 cents calante, una entrada 140 ms tarde, una nota inestable y vibrato en la final. El servidor informa `transposicion_octavas: -1`, `desfase_inicio_ms: 1003`, la nota a −33 cents, la entrada a +134 ms y la nota `inestable`.
 
+### `transcribir(audio, idioma?)`
+
+Transcripción local con faster-whisper, con timestamps por segmento y por palabra. `idioma`
+acepta "es", "en", "en-US", "español"…; si se omite, se detecta automáticamente. Devuelve `texto`, `segmentos`
+[{t, fin, texto}] y `palabras` [{p, t, fin}]. Si no cabe en ~2 KB, primero se omiten las
+palabras y luego los segmentos, que quedan completos en `detalle_completo`.
+[Salida real](ejemplos/salidas/transcribir_en.json) sobre [voz sintética](ejemplos/audio/discurso_en.wav):
+
+```json
+{"audio":"ejemplos/audio/discurso_en.wav","duracion_s":15.79,"idioma":"en","prob_idioma":0.94,
+ "texto":"Um, so today I want to talk about, uh, public speaking. You know, most people feel nervous, like, before a big talk. I mean, that is completely normal. The key is to practice with real feedback.",
+ "segmentos":[{"t":0.0,"fin":4.26,"texto":"Um, so today I want to talk about, uh, public speaking."},
+   {"t":5.32,"fin":9.58,"texto":"You know, most people feel nervous, like, before a big talk."}, "…"],
+ "palabras":[{"p":"Um,","t":0.0,"fin":0.28}, "…"],
+ "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+```
+
+### `metricas_discurso(audio, idioma, umbral_pausa_s=0.7)`
+
+| Bloque | Campos |
+|---|---|
+| `ritmo` | `palabras`, `tiempo_habla_s` (de la 1.ª a la última palabra), `palabras_por_minuto`, `ppm_sin_pausas_largas` |
+| `pausas` | silencios ≥ `umbral_s` medidos por energía del audio: `cantidad`, `total_s`, `max_s`, `por_minuto`, `lista` [{t, dur, tras: palabra previa}] |
+| `muletillas` | `total`, `por_minuto`, `por_tipo`, `ocurrencias` [{t, texto}] |
+| `tono` | `f0_mediana_hz`, `desv_semitonos`, `rango_p10_p90_semitonos`, `monotono` (desv < 2 semitonos), `tramos_monotonos` [{t, fin}] (ventanas de 8 s) |
+| `volumen` | nivel por palabra: `media_dbfs`, `desv_entre_palabras_db`, `rango_p10_p90_db`, `variacion_baja` (desv < 3 dB) |
+| `segmentos` | transcripción con timestamps |
+
+**Muletillas.** Las listas de español e inglés están en
+[`muletillas.toml`](src/voice_coach_mcp/habla/muletillas.toml) y tienen tres tipos de entrada:
+
+- **Vocalizaciones** ("eh", "mmm", "um"): siempre cuentan.
+- **Expresiones** ("o sea", "¿no?", "you know"): siempre cuentan.
+- **Ambiguas** ("este", "bueno", "like", "so"): solo cuentan aisladas, es decir, al inicio de la frase, junto a una coma o rodeadas de una pausa de 0,3 s o más. "Este libro" o "I like it" no cuentan.
+
+Para usar tus propias listas, copia el archivo y apunta `VOICE_COACH_MULETILLAS` a la copia. Para
+que Whisper no "limpie" las muletillas, en esta tool se le pasa un prompt inicial que las
+contiene; aun así, un "eh" muy breve puede no transcribirse.
+
+Salida real ([completa](ejemplos/salidas/metricas_discurso_es.json)) sobre un
+[discurso sintético en español](ejemplos/audio/discurso_es.wav) con pausas insertadas de 1,2 s y 0,9 s
+y 7 muletillas:
+
+```json
+{"audio":"ejemplos/audio/discurso_es.wav","duracion_s":22.98,"idioma":"es",
+ "ritmo":{"palabras":43,"tiempo_habla_s":22.3,"palabras_por_minuto":116,"ppm_sin_pausas_largas":127},
+ "pausas":{"umbral_s":0.7,"cantidad":2,"total_s":2.0,"max_s":1.16,"por_minuto":5.4,
+   "lista":[{"t":3.9,"dur":1.16,"tras":"importante"},{"t":15.56,"dur":0.87,"tras":"nerviosos"}]},
+ "muletillas":{"total":7,"por_minuto":18.8,
+   "por_tipo":{"bueno":1,"eh":1,"o sea":1,"este":1,"mmm":1,"entonces":1,"no?":1},
+   "ocurrencias":[{"t":0.0,"texto":"bueno"},{"t":1.06,"texto":"eh"},{"t":4.56,"texto":"o sea"}, "…"]},
+ "tono":{"f0_mediana_hz":103,"desv_semitonos":1.44,"rango_p10_p90_semitonos":3.6,"monotono":true,
+   "tramos_monotonos":[{"t":0.0,"fin":20.0}]},
+ "volumen":{"media_dbfs":-21.4,"desv_entre_palabras_db":2.6,"rango_p10_p90_db":5.2,"variacion_baja":true},
+ "segmentos":[{"t":0.0,"fin":3.74,"texto":"Bueno, eh, hoy quiero hablarles de un tema importante."}, "…"],
+ "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+```
+
+La voz de espeak-ng es muy plana, por eso sale `monotono: true` y `variacion_baja: true`.
+[Ejemplo en inglés](ejemplos/salidas/metricas_discurso_en.json).
+
 ## Prompts MCP
 
 | Prompt | Argumentos | Uso |
 |---|---|---|
 | `sesion_canto` | `nivel`, `objetivo`, `referencia_midi` | calentamiento → ejercicio → `analizar_afinacion` → feedback → siguiente ejercicio |
 | `sesion_pronunciacion` | `nivel`, `foco` | pares mínimos y frases (requiere `evaluar_pronunciacion`, fase 3) |
-| `sesion_oratoria` | `contexto`, `duracion_objetivo_s` | ritmo, pausas, muletillas (requiere `metricas_discurso`, fase 2) |
+| `sesion_oratoria` | `contexto`, `duracion_objetivo_s` | ritmo, pausas, muletillas y variación de tono/volumen con `metricas_discurso` |
 
 En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; en Claude Code, como `/mcp__voice-coach__sesion_canto`.
 
@@ -175,6 +241,10 @@ En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; e
 | `VOICE_COACH_MAX_SEGUNDOS` | `120` | duración máxima de `grabar_audio` |
 | `VOICE_COACH_A4_HZ` | `440` | diapasón de referencia |
 | `VOICE_COACH_MAX_BYTES` | `2048` | presupuesto de cada respuesta |
+| `VOICE_COACH_WHISPER_MODEL` | `small` | modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`, `turbo`…) |
+| `VOICE_COACH_WHISPER_DEVICE` | `cpu` | `cpu` o `cuda` (CTranslate2 no usa la GPU de los Mac) |
+| `VOICE_COACH_WHISPER_COMPUTE_TYPE` | `int8` | tipo de cómputo de CTranslate2 |
+| `VOICE_COACH_MULETILLAS` | — | TOML propio con listas de muletillas |
 
 ## Cómo mide la afinación
 
@@ -203,6 +273,7 @@ respiración entre ellas, cuentan como una sola.
 
 ```bash
 uv run pytest                     # tests rápidos (audio sintético, micrófono simulado)
+uv run pytest -m modelos          # Whisper real (tiny) sobre voz de espeak-ng; requiere --extra habla y espeak-ng
 uv run ruff check . && uv run ruff format --check .
 uv run python ejemplos/generar_ejemplos.py   # regenera ejemplos/ llamando al servidor por stdio
 ```
@@ -217,6 +288,7 @@ src/voice_coach_mcp/
   server.py        tools y prompts MCP (capa fina)
   audio/           carga, grabación y calidad del audio
   canto/           pitch, teoría musical, referencia MIDI, afinación
+  habla/           transcripción (faster-whisper), métricas de discurso, listas de muletillas
   salida.py        presupuesto de 2 KB y JSON de detalle
   prompts.py       textos de los prompts de sesión
 tests/             tests con audio y MIDI sintéticos

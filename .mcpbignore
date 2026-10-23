@@ -10,6 +10,5 @@ examples/
 *.mcpb
 *.zip
 .claude-plugin/
-.mcp.json
 server.json
 CONTRIBUTING.md

@@ -56,6 +56,10 @@ claude plugin install voice-coach@voice-coach
 
 Or, inside a session: `/plugin install voice-coach --marketplace FabianIMV/voice-coach-mcp`.
 
+The first start installs the Python dependencies with uv, which can take a minute or two (the
+models download later, on first use). If `/mcp` shows `voice-coach` as failed right after
+installing, reconnect it from `/mcp` once the installation finishes.
+
 ### Claude Desktop (extension)
 
 Download `voice-coach.mcpb` from the [latest release](https://github.com/FabianIMV/voice-coach-mcp/releases/latest)

@@ -1,0 +1,12 @@
+{
+  "name": "voice-coach",
+  "description": "Voice coaching for Claude: singing, English pronunciation and public speaking.",
+  "owner": { "name": "FabianIMV", "url": "https://github.com/FabianIMV" },
+  "plugins": [
+    {
+      "name": "voice-coach",
+      "source": "./",
+      "description": "Local pitch, pronunciation and public-speaking analysis plus a coaching skill with progress tracking."
+    }
+  ]
+}

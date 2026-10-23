@@ -1454,14 +1454,14 @@ dependencies = [
 azure = [
     { name = "azure-cognitiveservices-speech" },
 ]
-habla = [
-    { name = "faster-whisper" },
-]
-pronunciacion = [
+pronunciation = [
     { name = "phonemizer" },
     { name = "torch", version = "2.14.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
     { name = "torch", version = "2.14.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
     { name = "transformers" },
+]
+speech = [
+    { name = "faster-whisper" },
 ]
 
 [package.dev-dependencies]
@@ -1473,19 +1473,19 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "azure-cognitiveservices-speech", marker = "extra == 'azure'", specifier = ">=1.40" },
-    { name = "faster-whisper", marker = "extra == 'habla'", specifier = ">=1.2" },
+    { name = "faster-whisper", marker = "extra == 'speech'", specifier = ">=1.2" },
     { name = "librosa", specifier = ">=1.0" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "phonemizer", marker = "extra == 'pronunciacion'", specifier = ">=3.3" },
+    { name = "phonemizer", marker = "extra == 'pronunciation'", specifier = ">=3.3" },
     { name = "pretty-midi", specifier = ">=0.2.11" },
     { name = "sounddevice", specifier = ">=0.5" },
     { name = "soundfile", specifier = ">=0.12" },
-    { name = "torch", marker = "sys_platform == 'linux' and extra == 'pronunciacion'", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torch", marker = "sys_platform != 'linux' and extra == 'pronunciacion'", specifier = ">=2.4" },
-    { name = "transformers", marker = "extra == 'pronunciacion'", specifier = ">=4.45" },
+    { name = "torch", marker = "sys_platform == 'linux' and extra == 'pronunciation'", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "sys_platform != 'linux' and extra == 'pronunciation'", specifier = ">=2.4" },
+    { name = "transformers", marker = "extra == 'pronunciation'", specifier = ">=4.45" },
 ]
-provides-extras = ["habla", "pronunciacion", "azure"]
+provides-extras = ["speech", "pronunciation", "azure"]
 
 [package.metadata.requires-dev]
 dev = [

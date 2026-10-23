@@ -1,0 +1,86 @@
+{
+  "manifest_version": "0.4",
+  "name": "voice-coach",
+  "display_name": "Voice Coach",
+  "version": "0.1.0",
+  "description": "Gives Claude ears: local pitch, pronunciation and public-speaking analysis so Claude can coach your voice.",
+  "long_description": "Records from your microphone and analyzes audio locally: pitch accuracy against equal temperament, a key or a MIDI melody; phoneme-level English pronunciation; and pace, pauses, filler words, monotony and volume of a speech. Tools return compact measurements; Claude turns them into coaching. Audio never leaves your computer. The first launch installs the Python dependencies with uv and later downloads the speech (~480 MB) and phoneme (~1.3 GB) models on first use.",
+  "author": { "name": "FabianIMV", "url": "https://github.com/FabianIMV" },
+  "repository": { "type": "git", "url": "https://github.com/FabianIMV/voice-coach-mcp" },
+  "homepage": "https://github.com/FabianIMV/voice-coach-mcp",
+  "documentation": "https://github.com/FabianIMV/voice-coach-mcp#readme",
+  "support": "https://github.com/FabianIMV/voice-coach-mcp/issues",
+  "icon": "assets/icon.png",
+  "server": {
+    "type": "uv",
+    "entry_point": "src/voice_coach_mcp/__main__.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${__dirname}",
+        "--extra",
+        "speech",
+        "--extra",
+        "pronunciation",
+        "voice-coach-mcp"
+      ],
+      "env": {
+        "VOICE_COACH_DIR": "${user_config.data_dir}",
+        "VOICE_COACH_WHISPER_MODEL": "${user_config.whisper_model}"
+      }
+    }
+  },
+  "tools": [
+    { "name": "record_audio", "description": "Record from the microphone to a 16 kHz mono WAV." },
+    { "name": "analyze_pitch", "description": "Pitch accuracy against equal temperament, a key or a MIDI melody." },
+    { "name": "transcribe", "description": "Local transcription with word-level timestamps." },
+    { "name": "speech_metrics", "description": "Pace, pauses, filler words, pitch monotony and volume variation." },
+    { "name": "assess_pronunciation", "description": "Phoneme-level English pronunciation assessment." },
+    { "name": "read_progress", "description": "Read the latest sessions from the progress log." },
+    { "name": "log_progress", "description": "Append a session to the progress log." }
+  ],
+  "prompts": [
+    {
+      "name": "singing_session",
+      "description": "Guided singing session.",
+      "arguments": ["level"],
+      "text": "Run a singing session for a ${arguments.level} level using the voice-coach tools."
+    },
+    {
+      "name": "pronunciation_session",
+      "description": "Guided English pronunciation session.",
+      "arguments": ["level"],
+      "text": "Run an English pronunciation session for a ${arguments.level} level using the voice-coach tools."
+    },
+    {
+      "name": "speaking_session",
+      "description": "Guided public-speaking session.",
+      "arguments": ["context"],
+      "text": "Run a public-speaking session about ${arguments.context} using the voice-coach tools."
+    }
+  ],
+  "user_config": {
+    "data_dir": {
+      "type": "directory",
+      "title": "Data folder",
+      "description": "Where recordings, analysis details and progress.md are stored.",
+      "default": "${HOME}/VoiceCoach",
+      "required": false
+    },
+    "whisper_model": {
+      "type": "string",
+      "title": "Whisper model",
+      "description": "Transcription model: tiny, base, small (default), medium or large-v3. Larger is more accurate but slower.",
+      "default": "small",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "linux"],
+    "runtimes": { "python": ">=3.12,<3.13" }
+  },
+  "keywords": ["voice", "singing", "pitch", "pronunciation", "public speaking", "coach"],
+  "license": "MIT"
+}

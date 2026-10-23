@@ -1,80 +1,90 @@
-"""Punto de entrada: `voice-coach-mcp` inicia el servidor MCP por stdio."""
+"""Entry point: `voice-coach-mcp` starts the MCP server over stdio."""
 
 import argparse
 import logging
 import sys
+from importlib import resources
 from pathlib import Path
+
+SKILL_NAME = "voice-coach"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="voice-coach-mcp", description=__doc__)
-    sub = parser.add_subparsers(dest="comando")
-    sub.add_parser("servidor", help="inicia el servidor MCP por stdio (por defecto)")
+    sub = parser.add_subparsers(dest="command")
+    sub.add_parser("serve", help="start the MCP server over stdio (default)")
     sub.add_parser(
-        "descargar-modelos",
-        help="descarga los modelos de los extras instalados para que la primera llamada sea rápida",
+        "download-models",
+        help="download the models of the installed extras so the first call is fast",
     )
-    empaquetar = sub.add_parser(
-        "empaquetar-skill",
-        help="crea un .zip de la skill coach-de-voz para subirla a Claude Desktop",
+    package = sub.add_parser(
+        "package-skill", help=f"create a .zip of the {SKILL_NAME} skill for Claude Desktop"
     )
-    empaquetar.add_argument("destino", nargs="?", default="coach-de-voz.zip")
+    package.add_argument("destination", nargs="?", default=f"{SKILL_NAME}.zip")
     args = parser.parse_args()
 
-    # stdout es el canal del protocolo MCP: todo log va a stderr. Las librerías (httpx,
-    # huggingface_hub…) solo muestran advertencias; el servidor, también sus INFO.
+    # stdout is the MCP protocol channel: every log goes to stderr. Libraries (httpx,
+    # huggingface_hub…) only show warnings; the server also shows its INFO messages.
     logging.basicConfig(
         stream=sys.stderr, level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s"
     )
     logging.getLogger("voice_coach_mcp").setLevel(logging.INFO)
 
-    if args.comando in (None, "servidor"):
+    if args.command in (None, "serve"):
         from .server import mcp
 
         mcp.run("stdio")
-    elif args.comando == "descargar-modelos":
-        descargar_modelos()
-    elif args.comando == "empaquetar-skill":
-        print(empaquetar_skill(Path(args.destino)), file=sys.stderr)
+    elif args.command == "download-models":
+        download_models()
+    elif args.command == "package-skill":
+        print(package_skill(Path(args.destination)), file=sys.stderr)
 
 
-def empaquetar_skill(destino: Path) -> Path:
-    """Zip con la carpeta coach-de-voz/ en la raíz, como lo espera Claude Desktop."""
+def skill_dir() -> Path:
+    """The skill bundled in the package (wheel install) or in the repository (source checkout)."""
+    bundled = resources.files(__package__) / "_skill" / SKILL_NAME
+    if bundled.is_dir():
+        return Path(str(bundled))
+    return Path(__file__).resolve().parents[2] / "skills" / SKILL_NAME
+
+
+def package_skill(destination: Path) -> Path:
+    """Zip with the voice-coach/ folder at its root, as Claude Desktop expects."""
     import zipfile
 
-    origen = Path(__file__).resolve().parents[2] / "skills" / "coach-de-voz"
-    if not (origen / "SKILL.md").exists():
-        raise SystemExit(f"No encuentro la skill en {origen}")
-    with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
-        for archivo in sorted(origen.rglob("*")):
-            if archivo.is_file():
-                z.write(archivo, Path("coach-de-voz") / archivo.relative_to(origen))
-    return destino.resolve()
+    source = skill_dir()
+    if not (source / "SKILL.md").exists():
+        raise SystemExit(f"Skill not found at {source}")
+    with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as z:
+        for file in sorted(source.rglob("*")):
+            if file.is_file():
+                z.write(file, Path(SKILL_NAME) / file.relative_to(source))
+    return destination.resolve()
 
 
-def descargar_modelos() -> None:
-    from .config import cargar_config
-    from .errores import ErrorUsuario
+def download_models() -> None:
+    from .config import load_config
+    from .errors import UserError
 
-    config = cargar_config()
+    config = load_config()
     try:
-        from .habla.transcripcion import modelo
+        from .speech.transcription import model
 
-        print(f"Whisper '{config.whisper_modelo}'…", file=sys.stderr)
-        modelo(config)
-        print("  listo", file=sys.stderr)
-    except ErrorUsuario as e:
-        print(f"  omitido: {e}", file=sys.stderr)
+        print(f"Whisper '{config.whisper_model}'…", file=sys.stderr)
+        model(config)
+        print("  ready", file=sys.stderr)
+    except UserError as e:
+        print(f"  skipped: {e}", file=sys.stderr)
     try:
-        from .pronunciacion.fonemas import esperados_por_palabra
-        from .pronunciacion.wav2vec2 import MODELO, cargar_modelo
+        from .pronunciation.phonemes import expected_by_word
+        from .pronunciation.wav2vec2 import MODEL, load_model
 
-        print(f"Modelo de fonemas '{MODELO}' y espeak-ng…", file=sys.stderr)
-        cargar_modelo()
-        esperados_por_palabra(["hello"], "en-US")
-        print("  listo", file=sys.stderr)
-    except ErrorUsuario as e:
-        print(f"  omitido: {e}", file=sys.stderr)
+        print(f"Phoneme model '{MODEL}' and espeak-ng…", file=sys.stderr)
+        load_model()
+        expected_by_word(["hello"], "en-US")
+        print("  ready", file=sys.stderr)
+    except UserError as e:
+        print(f"  skipped: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

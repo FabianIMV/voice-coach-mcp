@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "voice-coach": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "--extra",
+        "speech",
+        "--extra",
+        "pronunciation",
+        "voice-coach-mcp"
+      ]
+    }
+  }
+}

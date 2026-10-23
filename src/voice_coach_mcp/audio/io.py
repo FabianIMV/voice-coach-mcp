@@ -1,4 +1,4 @@
-"""Carga y guardado de audio, normalizado a 16 kHz mono float32."""
+"""Audio loading and saving, normalized to 16 kHz mono float32."""
 
 import shutil
 import subprocess
@@ -8,47 +8,47 @@ import numpy as np
 import soundfile as sf
 
 from ..config import SAMPLE_RATE, Config
-from ..errores import ErrorUsuario
+from ..errors import UserError
 
 
-def resolver_ruta(audio: str, config: Config) -> Path:
-    """Acepta rutas absolutas, relativas o el nombre de una grabación en el dir de grabaciones."""
-    ruta = Path(audio).expanduser()
-    if ruta.is_file():
-        return ruta.resolve()
-    for candidata in (config.dir_grabaciones / audio, config.dir_grabaciones / f"{audio}.wav"):
-        if candidata.is_file():
-            return candidata.resolve()
-    raise ErrorUsuario(f"No encuentro el archivo de audio: {audio}")
+def resolve_path(audio: str, config: Config) -> Path:
+    """Accepts absolute or relative paths, or the name of a recording in the recordings dir."""
+    path = Path(audio).expanduser()
+    if path.is_file():
+        return path.resolve()
+    for candidate in (config.recordings_dir / audio, config.recordings_dir / f"{audio}.wav"):
+        if candidate.is_file():
+            return candidate.resolve()
+    raise UserError(f"Audio file not found: {audio}")
 
 
-def cargar(ruta: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
-    """Lee wav/flac/ogg/mp3 con libsndfile; otros formatos (m4a, aac…) vía ffmpeg."""
+def load(path: Path, sr: int = SAMPLE_RATE) -> np.ndarray:
+    """Reads wav/flac/ogg/mp3 with libsndfile; other formats (m4a, aac…) through ffmpeg."""
     try:
-        y, sr_orig = sf.read(ruta, dtype="float32", always_2d=True)
+        y, original_sr = sf.read(path, dtype="float32", always_2d=True)
         y = y.mean(axis=1)
     except sf.LibsndfileError:
-        return _cargar_ffmpeg(ruta, sr)
-    if sr_orig != sr:
+        return _load_ffmpeg(path, sr)
+    if original_sr != sr:
         import librosa
 
-        y = librosa.resample(y, orig_sr=sr_orig, target_sr=sr)
+        y = librosa.resample(y, orig_sr=original_sr, target_sr=sr)
     return np.ascontiguousarray(y, dtype=np.float32)
 
 
-def _cargar_ffmpeg(ruta: Path, sr: int) -> np.ndarray:
+def _load_ffmpeg(path: Path, sr: int) -> np.ndarray:
     if shutil.which("ffmpeg") is None:
-        raise ErrorUsuario(
-            f"No puedo leer {ruta.name}: formato no soportado sin ffmpeg (brew install ffmpeg)."
+        raise UserError(
+            f"Cannot read {path.name}: unsupported format without ffmpeg (brew install ffmpeg)."
         )
-    proceso = subprocess.run(
+    process = subprocess.run(
         [
             "ffmpeg",
             "-nostdin",
             "-v",
             "error",
             "-i",
-            str(ruta),
+            str(path),
             "-ac",
             "1",
             "-ar",
@@ -60,11 +60,11 @@ def _cargar_ffmpeg(ruta: Path, sr: int) -> np.ndarray:
         capture_output=True,
         check=False,
     )
-    if proceso.returncode != 0:
-        raise ErrorUsuario(f"ffmpeg no pudo leer {ruta.name}: {proceso.stderr.decode()[:200]}")
-    return np.frombuffer(proceso.stdout, dtype=np.float32).copy()
+    if process.returncode != 0:
+        raise UserError(f"ffmpeg could not read {path.name}: {process.stderr.decode()[:200]}")
+    return np.frombuffer(process.stdout, dtype=np.float32).copy()
 
 
-def guardar_wav(ruta: Path, y: np.ndarray, sr: int = SAMPLE_RATE) -> None:
-    ruta.parent.mkdir(parents=True, exist_ok=True)
-    sf.write(ruta, np.clip(y, -1.0, 1.0), sr, subtype="PCM_16")
+def save_wav(path: Path, y: np.ndarray, sr: int = SAMPLE_RATE) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(path, np.clip(y, -1.0, 1.0), sr, subtype="PCM_16")

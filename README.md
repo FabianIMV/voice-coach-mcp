@@ -1,422 +1,249 @@
-# voice-coach-mcp
+<p align="center">
+  <img src="assets/icon.png" alt="Voice Coach" width="112">
+</p>
 
-Servidor MCP en Python que le da "oídos" a Claude. Claude no procesa audio, así que este servidor
-graba y analiza el audio **localmente** y le devuelve mediciones compactas en JSON (afinación,
-pronunciación, ritmo del discurso). Con esos datos, Claude actúa como coach de canto,
-pronunciación en inglés y oratoria.
+<h1 align="center">voice-coach-mcp</h1>
 
-- **Las tools miden; Claude interpreta.** El servidor no da consejos: devuelve números,
-  categorías descriptivas, un campo `confianza` y `advertencias` (ruido, clipping, audio corto…).
-- **Respuestas de ~2 KB como máximo.** Si hay más detalle, se guarda en un JSON junto al audio y la
-  respuesta indica la ruta en `detalle_completo`.
-- **Sin material con derechos.** Las melodías de referencia las aportas tú como MIDI; los tests y
-  los ejemplos usan audio sintético.
+<p align="center">
+  <strong>Give Claude ears.</strong> A local MCP server that listens to you sing, speak and read
+  aloud, measures what it hears, and lets Claude coach your voice.
+</p>
 
-## Estado
+<p align="center">
+  <a href="https://github.com/FabianIMV/voice-coach-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/FabianIMV/voice-coach-mcp/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-blue.svg">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-server-7c3aed.svg">
+</p>
 
-| Fase | Contenido | Estado |
-|---|---|---|
-| 1 | Esqueleto, `grabar_audio`, `analizar_afinacion`, prompts | ✅ |
-| 2 | `transcribir`, `metricas_discurso` | ✅ |
-| 3 | `evaluar_pronunciacion` (wav2vec2 local / Azure opcional) | ✅ |
-| 4 | Skill `coach-de-voz` + registro de progreso | ✅ |
+<!-- mcp-name: io.github.FabianIMV/voice-coach-mcp -->
 
-## Requisitos
+Claude cannot process audio. This server records from your microphone, analyzes the audio
+**on your computer**, and returns compact measurements that Claude turns into concrete coaching:
 
-- macOS (o Linux) con micrófono
-- [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`); uv instala Python 3.12 por su cuenta
-- Opcional: `brew install ffmpeg` para leer `.m4a`/`.aac` (p. ej., notas de voz del iPhone). WAV, FLAC, OGG y MP3 se leen sin ffmpeg.
-- Para pronunciación: `brew install espeak-ng` y un Mac con Apple Silicon y macOS 14 o superior (requisito de PyTorch).
+| Mode | What it measures |
+|---|---|
+| 🎤 **Singing** | Pitch accuracy per note (cents), flat/sharp tendency, drift, stability and vibrato. Compares against equal temperament, a key, or a MIDI melody, including wrong, missed and late notes. |
+| 🗣️ **English pronunciation** | Phoneme-level comparison of what you said against what you meant to read, with per-word scores and frequent confusions (θ → s, v → b, iː → ɪ…). |
+| 🎙️ **Public speaking** | Words per minute, long pauses, filler words (English and Spanish), pitch monotony and volume variation, with a timestamped transcript. |
+
+A bundled **skill** turns Claude into a coach: it runs warm-up → exercise → analysis → feedback
+sessions, gives one concrete focus per take, and keeps a progress log across sessions. Claude
+replies in your language.
+
+- **Local and private**: audio never leaves your computer (unless you opt into the Azure backend).
+- **Free**: open-source models (faster-whisper, wav2vec2) and no API keys.
+- **Tools measure, Claude interprets**: every response is compact JSON (≤ 2 KB) with `confidence`
+  and `warnings`, so Claude never coaches on bad audio.
+
+## Install
+
+You need [uv](https://docs.astral.sh/uv/) and, for pronunciation, `espeak-ng`:
 
 ```bash
-git clone https://github.com/fabianimv/voice-coach-mcp.git
-cd voice-coach-mcp
-uv sync --extra habla --extra pronunciacion   # todo (o solo los extras que uses)
-uv run voice-coach-mcp descargar-modelos      # opcional: baja los modelos ahora y no en la 1.ª llamada
+brew install uv espeak-ng ffmpeg        # macOS (ffmpeg is optional: m4a/aac input)
 ```
 
-Extras:
-- `habla`: faster-whisper, para `transcribir` y `metricas_discurso`. El modelo `small` pesa ~480 MB.
-- `pronunciacion`: torch, transformers y phonemizer, para `evaluar_pronunciacion`. El modelo de fonemas pesa ~1,2 GB.
-- `azure` (opcional): SDK de Azure Speech, para usar el backend de Azure en `evaluar_pronunciacion`.
+On Linux: install uv, then `sudo apt install espeak-ng ffmpeg libportaudio2`. Pronunciation
+analysis on macOS needs Apple Silicon and macOS 14 or later (a PyTorch requirement).
 
-Los modelos se descargan una sola vez. Con solo `uv sync` funcionan la grabación y la
-afinación; si llamas a una tool que necesita un extra que no instalaste, el error indica el
-comando para instalarlo. La primera llamada a `analizar_afinacion` tarda unos segundos más porque
-compila el detector de pitch (numba).
+### Claude Code (plugin: server + skill)
 
-## Registrar el servidor
+```bash
+claude plugin marketplace add FabianIMV/voice-coach-mcp
+claude plugin install voice-coach@voice-coach
+```
 
-### Claude Desktop
+Or, inside a session: `/plugin install voice-coach --marketplace FabianIMV/voice-coach-mcp`.
 
-Edita `~/Library/Application Support/Claude/claude_desktop_config.json` (Claude → Ajustes →
-Desarrollador → Editar configuración) y agrega:
+### Claude Desktop (extension)
+
+Download `voice-coach.mcpb` from the [latest release](https://github.com/FabianIMV/voice-coach-mcp/releases/latest)
+and double-click it (or drag it into Claude Desktop). For the coaching skill, also download
+`voice-coach-skill.zip` and upload it in **Settings → Capabilities → Skills**.
+
+### Any MCP client (manual)
+
+```bash
+claude mcp add voice-coach --scope user -- uvx --from "voice-coach-mcp[speech,pronunciation]" voice-coach-mcp
+```
+
+For Claude Desktop's `claude_desktop_config.json`, use absolute paths (Desktop does not inherit
+your shell `PATH`; `which uvx` prints it):
 
 ```json
 {
   "mcpServers": {
     "voice-coach": {
-      "command": "/Users/TU_USUARIO/.local/bin/uv",
-      "args": ["--directory", "/Users/TU_USUARIO/ruta/a/voice-coach-mcp", "run", "voice-coach-mcp"],
-      "env": {
-        "VOICE_COACH_DIR": "/Users/TU_USUARIO/VoiceCoach"
-      }
+      "command": "/opt/homebrew/bin/uvx",
+      "args": ["--from", "voice-coach-mcp[speech,pronunciation]", "voice-coach-mcp"]
     }
   }
 }
 ```
 
-Usa **rutas absolutas**: Claude Desktop no hereda el `PATH` de tu terminal. `which uv` te da la
-ruta de `uv`. Reinicia Claude Desktop después de guardar.
+Optional: run `uvx --from "voice-coach-mcp[speech,pronunciation]" voice-coach-mcp download-models`
+once, so the first call does not wait for the models (~480 MB Whisper, ~1.3 GB phoneme model).
 
-### Claude Code
+### Microphone permission (macOS)
 
-```bash
-claude mcp add voice-coach --scope user -- uv --directory /ruta/a/voice-coach-mcp run voice-coach-mcp
-```
+macOS grants the microphone to the **app that launches the server**: Claude Desktop, or the
+terminal running Claude Code (Terminal, iTerm, Ghostty, VS Code…). If permission is denied,
+macOS returns silence instead of an error and `record_audio` reports
+`no_microphone_permission`. Fix it in **System Settings → Privacy & Security → Microphone** and
+restart that app.
 
-Comprueba con `claude mcp list` o `/mcp` dentro de Claude Code.
+## Use it
 
-### Permiso de micrófono (macOS)
+Just talk to Claude:
 
-macOS le da el permiso de micrófono a la **app que lanza el servidor**: Claude Desktop o la
-terminal donde corre Claude Code (Terminal, iTerm, Ghostty, VS Code…). La primera vez que se graba,
-macOS debería preguntar. Si el permiso está denegado, macOS no falla: entrega silencio. En ese caso
-`grabar_audio` devuelve la advertencia `sin_permiso_microfono`. Para corregirlo, ve a **Ajustes del
-Sistema → Privacidad y seguridad → Micrófono**, habilita la app y reiníciala.
+- *"I want to practice singing in tune. I'm a beginner."*
+- *"Record 30 seconds of me presenting my project and tell me how many filler words I use."*
+- *"Help me pronounce 'th'. Give me sentences to read and score them."*
+- *"Analyze this voice memo against melody.mid"* (any wav/mp3/m4a path works).
+- *"How am I doing?"* (Claude reads your progress log).
+
+Guided sessions are also available as MCP prompts: `singing_session`, `pronunciation_session`
+and `speaking_session` (in Claude Code: `/mcp__voice-coach__singing_session`).
 
 ## Tools
 
-Todas aceptan como `audio` una ruta (wav/flac/mp3/m4a…) o el nombre que devolvió `grabar_audio`.
-Todas las respuestas incluyen `confianza` (`valor` 0–1 y `nivel` alta/media/baja) y `advertencias`
-(`codigo` + `detalle`).
-
-### `grabar_audio(segundos, nombre?)`
-
-Graba del micrófono predeterminado y guarda un `.wav` de 16 kHz mono en
-`$VOICE_COACH_DIR/grabaciones/` (por defecto `~/VoiceCoach`). No sobrescribe: si el nombre existe,
-agrega `-2`, `-3`… Máximo 120 s por defecto (`VOICE_COACH_MAX_SEGUNDOS`). Mientras graba, informa
-el progreso al cliente.
-
-Salida real (con un dispositivo de entrada **simulado**, porque el entorno donde se generó no tiene micrófono):
-
-```json
-{"audio":"~/VoiceCoach/grabaciones/toma.wav","duracion_s":3.0,"sample_rate":16000,"dispositivo":"Micrófono falso",
- "niveles":{"pico_dbfs":-10.5,"rms_dbfs":-14.3,"snr_db":60.0,"clipping_pct":0.0},
- "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
-```
-
-Sin permiso de micrófono ([ejemplo completo](ejemplos/salidas/grabar_audio_sin_permiso.json)):
-
-```json
-{"audio":"~/VoiceCoach/grabaciones/toma-2.wav", "...": "...",
- "confianza":{"valor":0.0,"nivel":"baja"},
- "advertencias":[{"codigo":"sin_permiso_microfono","detalle":"macOS no está entregando audio del micrófono. Revisa Ajustes del Sistema → Privacidad y seguridad → Micrófono…"},
-                 {"codigo":"silencio_digital","detalle":"El audio es silencio absoluto (todo ceros)."}]}
-```
-
-### `analizar_afinacion(audio, referencia_midi?, tonalidad?, pista_midi?)`
-
-Analiza una línea melódica (voz sola). Tiene tres modos:
-
-- **temperado** (por defecto): cada nota se compara con la nota temperada más cercana (A4 = 440 Hz, configurable).
-- **tonalidad**: con `tonalidad` ("A minor", "Am", "La menor", "Sol mayor", "F#", "sib menor"…), cada nota se compara con la nota más cercana de esa escala (mayor o menor natural).
-- **referencia_midi**: con `referencia_midi`, se alinea lo cantado con la melodía del MIDI. Tolera cantar una octava arriba o abajo, empezar en otro momento y un tempo algo distinto. Usa la pista no percusiva con más notas (o `pista_midi`); si tiene acordes, toma la línea superior.
-
-Campos principales:
-
-| Campo | Significado |
+| Tool | Purpose |
 |---|---|
-| `resumen.porcentaje_dentro_25_cents` | % de notas a ±25 cents o menos de la nota objetivo |
-| `resumen.desviacion_media_cents` | media ponderada por duración, con signo (+ = sostenido) |
-| `resumen.tendencia` | `plano` (< −10 cents), `sostenido` (> +10) o `centrado` |
-| `resumen.deriva_cents` | cuánto sube (+) o baja (−) la afinación de la 2.ª mitad respecto de la 1.ª |
-| `resumen.estabilidad` | conteo de notas `estable` / `vibrato` / `inestable` |
-| `notas[].t`, `dur` | inicio y duración en segundos |
-| `notas[].cents` | desviación respecto de la nota objetivo |
-| `notas[].estabilidad` | `estable`; `vibrato` (con `vibrato_hz` y `vibrato_pp_cents`, pico a pico); `inestable` (con `desv_cents`) |
-| `notas[].deriva_cents` | solo si la nota sube o baja ≥ 15 cents de principio a fin |
-| con MIDI: `esperada`, `cantada`, `nota_incorrecta` | `cantada` aparece solo si difiere de la esperada; incorrecta = más de 50 cents de error |
-| con MIDI: `entrada_ms`, `entrada` | adelanto o atraso respecto del pulso de la referencia; `a_tiempo` si está dentro de ±80 ms |
-| con MIDI: `estado` | `omitida` (nota de la referencia que no se cantó) o `extra` (nota cantada sin pareja) |
-| con MIDI: `transposicion_octavas`, `desfase_inicio_ms`, `tempo_relativo` | octava en que se cantó, momento de la grabación donde empieza la referencia, y tempo (> 1 = más lento) |
+| `record_audio(seconds, name?)` | Records a 16 kHz mono WAV to `~/VoiceCoach/recordings/` and reports levels, clipping and noise. |
+| `analyze_pitch(audio, reference_midi?, key?, midi_track?)` | Pitch accuracy per note against equal temperament, a key ("A minor", "G major"…) or a MIDI melody. |
+| `transcribe(audio, language?)` | Local transcription with segment and word timestamps. |
+| `speech_metrics(audio, language, pause_threshold_s=0.7)` | Pace, long pauses, filler words, pitch monotony and volume variation. |
+| `assess_pronunciation(audio, expected_text, language="en-US")` | Phoneme-level English pronunciation scores and errors. |
+| `read_progress(entries=5)` / `log_progress(entry)` | Read and append sessions in `~/VoiceCoach/progress.md`. |
 
-Si la lista de notas no cabe en ~2 KB, se muestran las más problemáticas (`notas_mostradas: "10 de 220"`)
-y el resto queda en `detalle_completo`.
+Audio can be a path or the name returned by `record_audio`. When a result is too long, the most
+relevant items are returned and everything else is saved next to the audio (`full_details`).
 
-Salida real, modo temperado. El audio es [una escala sintética](ejemplos/audio/escala_do_mayor.wav)
-con desafinaciones conocidas (0, −8, −30, +5, +22, −15, −42 y −2 cents, más vibrato de ±40 cents en la última nota) y ruido a 35 dB:
+<details>
+<summary><strong>Example: <code>analyze_pitch</code></strong> on a <a href="examples/audio/c_major_scale.wav">synthetic C major scale</a> with known deviations</summary>
 
 ```json
-{"audio":"ejemplos/audio/escala_do_mayor.wav","duracion_s":7.36,"modo":"temperado",
- "resumen":{"notas":8,"rango":"C4–C5","porcentaje_dentro_25_cents":75.0,"desviacion_media_cents":-7.8,
-   "desviacion_abs_media_cents":13.6,"tendencia":"centrado","deriva_cents":-1.0,
-   "estabilidad":{"estable":7,"vibrato":1,"inestable":0}},
- "notas":[{"t":0.4,"dur":0.62,"nota":"C4","cents":0,"estabilidad":"estable"},
-   {"t":1.12,"dur":0.62,"nota":"D4","cents":-8,"estabilidad":"estable"},
-   {"t":1.84,"dur":0.62,"nota":"E4","cents":-30,"estabilidad":"estable"},
-   {"t":2.56,"dur":0.62,"nota":"F4","cents":5,"estabilidad":"estable"},
-   {"t":3.28,"dur":0.62,"nota":"G4","cents":22,"estabilidad":"estable"},
-   {"t":4.0,"dur":0.62,"nota":"A4","cents":-15,"estabilidad":"estable"},
-   {"t":4.72,"dur":0.62,"nota":"B4","cents":-42,"estabilidad":"estable"},
-   {"t":5.44,"dur":1.43,"nota":"C5","cents":-2,"estabilidad":"vibrato","vibrato_hz":5.5,"vibrato_pp_cents":84}],
- "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+{"audio":"examples/audio/c_major_scale.wav","duration_s":7.36,"mode":"equal_temperament",
+ "summary":{"notes":8,"range":"C4–C5","pct_within_25_cents":75.0,"mean_deviation_cents":-7.8,
+   "mean_abs_deviation_cents":13.6,"tendency":"centered","drift_cents":-1.0,
+   "stability":{"stable":7,"vibrato":1,"unstable":0}},
+ "notes":[{"t":0.4,"dur":0.62,"note":"C4","cents":0,"stability":"stable"},
+   {"t":1.84,"dur":0.62,"note":"E4","cents":-30,"stability":"stable"},
+   {"t":4.72,"dur":0.62,"note":"B4","cents":-42,"stability":"stable"},
+   {"t":5.44,"dur":1.43,"note":"C5","cents":-2,"stability":"vibrato","vibrato_hz":5.5,"vibrato_pp_cents":84}, "…"],
+ "confidence":{"value":1.0,"level":"high"},"warnings":[]}
 ```
 
-Otras salidas reales:
-- [Modo tonalidad (Sol mayor)](ejemplos/salidas/analizar_afinacion_tonalidad.json): el F4 cantado aparece como F#4 a −95 cents, porque en Sol mayor corresponde F#.
-- [Con referencia MIDI](ejemplos/salidas/analizar_afinacion_referencia_midi.json): melodía cantada una octava abajo, que entra 1 s tarde, con una nota 33 cents calante, una entrada 140 ms tarde, una nota inestable y vibrato en la final. El servidor informa `transposicion_octavas: -1`, `desfase_inicio_ms: 1003`, la nota a −33 cents, la entrada a +134 ms y la nota `inestable`.
+With a [MIDI reference](examples/outputs/analyze_pitch_midi_reference.json), the server detects
+that the melody was sung an octave lower (`octave_shift: -1`), started 1 s late
+(`start_offset_ms: 1003`), and that one note came in 134 ms late.
+</details>
 
-### `transcribir(audio, idioma?)`
-
-Transcripción local con faster-whisper, con timestamps por segmento y por palabra. `idioma`
-acepta "es", "en", "en-US", "español"…; si se omite, se detecta automáticamente. Devuelve `texto`, `segmentos`
-[{t, fin, texto}] y `palabras` [{p, t, fin}]. Si no cabe en ~2 KB, primero se omiten las
-palabras y luego los segmentos, que quedan completos en `detalle_completo`.
-[Salida real](ejemplos/salidas/transcribir_en.json) sobre [voz sintética](ejemplos/audio/discurso_en.wav):
+<details>
+<summary><strong>Example: <code>assess_pronunciation</code></strong> — "I <em>s</em>ink the <em>b</em>erry best <em>s</em>ings…" read for "I think the very best things in life are free"</summary>
 
 ```json
-{"audio":"ejemplos/audio/discurso_en.wav","duracion_s":15.79,"idioma":"en","prob_idioma":0.94,
- "texto":"Um, so today I want to talk about, uh, public speaking. You know, most people feel nervous, like, before a big talk. I mean, that is completely normal. The key is to practice with real feedback.",
- "segmentos":[{"t":0.0,"fin":4.26,"texto":"Um, so today I want to talk about, uh, public speaking."},
-   {"t":5.32,"fin":9.58,"texto":"You know, most people feel nervous, like, before a big talk."}, "…"],
- "palabras":[{"p":"Um,","t":0.0,"fin":0.28}, "…"],
- "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+{"backend":"wav2vec2-local",
+ "summary":{"overall_score":90,"words":10,"words_with_errors":3,
+   "errors":{"substitution":3,"deletion":0,"insertion":0},
+   "frequent_confusions":[{"expected":"θ","detected":"s","count":2},{"expected":"v","detected":"b","count":1}]},
+ "words":[{"word":"think","score":75,"t":0.56,"expected":"θ ɪ ŋ k","detected":"s ɪ ŋ k",
+     "errors":[{"type":"substitution","expected":"θ","detected":"s"}]},
+   {"word":"very","score":75,"t":0.96,"expected":"v ɛ ɹ i","detected":"b ɛ ɹ i",
+     "errors":[{"type":"substitution","expected":"v","detected":"b"}]}, "…"],
+ "confidence":{"value":1.0,"level":"high"},"warnings":[]}
 ```
+</details>
 
-### `metricas_discurso(audio, idioma, umbral_pausa_s=0.7)`
-
-| Bloque | Campos |
-|---|---|
-| `ritmo` | `palabras`, `tiempo_habla_s` (de la 1.ª a la última palabra), `palabras_por_minuto`, `ppm_sin_pausas_largas` |
-| `pausas` | silencios ≥ `umbral_s` medidos por energía del audio: `cantidad`, `total_s`, `max_s`, `por_minuto`, `lista` [{t, dur, tras: palabra previa}] |
-| `muletillas` | `total`, `por_minuto`, `por_tipo`, `ocurrencias` [{t, texto}] |
-| `tono` | `f0_mediana_hz`, `desv_semitonos`, `rango_p10_p90_semitonos`, `monotono` (desv < 2 semitonos), `tramos_monotonos` [{t, fin}] (ventanas de 8 s) |
-| `volumen` | nivel por palabra: `media_dbfs`, `desv_entre_palabras_db`, `rango_p10_p90_db`, `variacion_baja` (desv < 3 dB) |
-| `segmentos` | transcripción con timestamps |
-
-**Muletillas.** Las listas de español e inglés están en
-[`muletillas.toml`](src/voice_coach_mcp/habla/muletillas.toml) y tienen tres tipos de entrada:
-
-- **Vocalizaciones** ("eh", "mmm", "um"): siempre cuentan.
-- **Expresiones** ("o sea", "¿no?", "you know"): siempre cuentan.
-- **Ambiguas** ("este", "bueno", "like", "so"): solo cuentan aisladas, es decir, al inicio de la frase, junto a una coma o rodeadas de una pausa de 0,3 s o más. "Este libro" o "I like it" no cuentan.
-
-Para usar tus propias listas, copia el archivo y apunta `VOICE_COACH_MULETILLAS` a la copia. Para
-que Whisper no "limpie" las muletillas, en esta tool se le pasa un prompt inicial que las
-contiene; aun así, un "eh" muy breve puede no transcribirse.
-
-Salida real ([completa](ejemplos/salidas/metricas_discurso_es.json)) sobre un
-[discurso sintético en español](ejemplos/audio/discurso_es.wav) con pausas insertadas de 1,2 s y 0,9 s
-y 7 muletillas:
+<details>
+<summary><strong>Example: <code>speech_metrics</code></strong> on a <a href="examples/audio/speech_en.wav">short synthetic talk</a> with inserted pauses and fillers</summary>
 
 ```json
-{"audio":"ejemplos/audio/discurso_es.wav","duracion_s":22.98,"idioma":"es",
- "ritmo":{"palabras":43,"tiempo_habla_s":22.3,"palabras_por_minuto":116,"ppm_sin_pausas_largas":127},
- "pausas":{"umbral_s":0.7,"cantidad":2,"total_s":2.0,"max_s":1.16,"por_minuto":5.4,
-   "lista":[{"t":3.9,"dur":1.16,"tras":"importante"},{"t":15.56,"dur":0.87,"tras":"nerviosos"}]},
- "muletillas":{"total":7,"por_minuto":18.8,
-   "por_tipo":{"bueno":1,"eh":1,"o sea":1,"este":1,"mmm":1,"entonces":1,"no?":1},
-   "ocurrencias":[{"t":0.0,"texto":"bueno"},{"t":1.06,"texto":"eh"},{"t":4.56,"texto":"o sea"}, "…"]},
- "tono":{"f0_mediana_hz":103,"desv_semitonos":1.44,"rango_p10_p90_semitonos":3.6,"monotono":true,
-   "tramos_monotonos":[{"t":0.0,"fin":20.0}]},
- "volumen":{"media_dbfs":-21.4,"desv_entre_palabras_db":2.6,"rango_p10_p90_db":5.2,"variacion_baja":true},
- "segmentos":[{"t":0.0,"fin":3.74,"texto":"Bueno, eh, hoy quiero hablarles de un tema importante."}, "…"],
- "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
+{"language":"en",
+ "pace":{"words":36,"speaking_time_s":14.9,"words_per_minute":145,"wpm_excluding_long_pauses":165},
+ "pauses":{"threshold_s":0.7,"count":2,"total_s":1.9,"max_s":1.03,"per_minute":8.1,
+   "items":[{"t":4.42,"dur":1.03,"after":"speaking"},{"t":12.1,"dur":0.83,"after":"normal"}]},
+ "fillers":{"total":6,"per_minute":24.2,"by_type":{"um":1,"so":1,"uh":1,"you know":1,"like":1,"i mean":1}},
+ "pitch":{"median_f0_hz":101,"std_semitones":1.53,"monotone":true,"monotone_stretches":[{"t":0.0,"end":12.0}]},
+ "volume":{"mean_dbfs":-21.2,"std_between_words_db":2.4,"low_variation":true},
+ "confidence":{"value":1.0,"level":"high"},"warnings":[]}
 ```
 
-La voz de espeak-ng es muy plana, por eso sale `monotono: true` y `variacion_baja: true`.
-[Ejemplo en inglés](ejemplos/salidas/metricas_discurso_en.json).
+The synthetic voice is very flat, hence `monotone: true`. A [Spanish example](examples/outputs/speech_metrics_es.json) is also included.
+</details>
 
-### `evaluar_pronunciacion(audio, texto_esperado, idioma="en-US")`
+All example outputs are real responses from the server over stdio, regenerated by
+[`examples/generate_examples.py`](examples/generate_examples.py) on synthetic audio; see
+[`examples/outputs/`](examples/outputs).
 
-Compara lo que se dijo con lo que se debía decir, fonema por fonema:
+## How it works
 
-1. **Fonemas esperados**: `texto_esperado` se convierte a fonemas IPA con phonemizer + espeak-ng, palabra por palabra.
-2. **Fonemas detectados**: el modelo local [`facebook/wav2vec2-lv-60-espeak-cv-ft`](https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft) reconoce los fonemas del audio, sin pasar por palabras. En un Mac con Apple Silicon usa la GPU (MPS).
-3. **Alineación**: ambas secuencias se alinean por distancia de edición. Una sustitución entre vocal y consonante cuesta más, así la alineación prefiere emparejar vocal con vocal.
-4. **Puntaje**: por palabra, `100·(1 − (S + O + 0,5·I)/fonemas esperados)`, donde S son sustituciones, O omisiones e I inserciones.
+- **Pitch**: pYIN (librosa) finds voiced frames; each frame is refined from its harmonic peaks
+  with parabolic interpolation (~1 cent accuracy from C2 to C6). Notes are split at silences,
+  energy dips and sustained pitch changes; vibrato does not split notes. With a MIDI reference,
+  the octave and offset are found by cross-correlation, notes are aligned with Needleman–Wunsch,
+  and a tempo line `t_sung = a·t_ref + b` is fitted to judge each onset.
+- **Speech**: faster-whisper transcribes with word timestamps (an initial prompt keeps fillers).
+  Pauses are measured from the audio energy, because Whisper stretches word endings into silence.
+  Ambiguous fillers ("like", "so") only count when isolated by a comma or a pause.
+- **Pronunciation**: phonemizer + espeak-ng give the expected IPA phonemes; the
+  [`facebook/wav2vec2-lv-60-espeak-cv-ft`](https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft)
+  phoneme model gives what was said; both are aligned by edit distance. Normal American English
+  variants (flap, schwa, linking r, glottal stop) are not counted as errors.
+- **Quality first**: clipping, background noise, silence and missing microphone permission are
+  reported as warnings and lower the confidence.
 
-No cuentan como error las variantes normales del inglés americano:
+**Known limitations**: one voice at a time (accompaniment degrades pitch detection); two identical
+notes sung in perfect legato count as one; the phoneme model uses sentence context and may
+occasionally "correct" a mispronounced word; pronunciation assessment is English-only.
 
-- flap (`butter` con ɾ o t);
-- schwa (ə/ɐ, ə/ɪ);
-- "the" como ðə o ði;
-- "r de enlace" (`weather‿is`);
-- golpe glótico.
+## Configuration
 
-| Campo | Significado |
-|---|---|
-| `resumen.puntaje_global` | 0–100 sobre todos los fonemas |
-| `resumen.errores` | conteo de `sustitucion`, `omision`, `insercion` |
-| `resumen.confusiones_frecuentes` | pares esperado → detectado más repetidos (p. ej., θ → s) |
-| `palabras[]` | `palabra`, `puntaje`, `t`; si hay errores, `esperado`/`detectado` (IPA) y `errores`; `omitida` si no se dijo |
-| `fonemas` | ambas secuencias completas |
-| advertencia `texto_no_coincide` | más del 60 % de los fonemas difiere: probablemente se leyó otro texto |
-
-Salida real ([completa](ejemplos/salidas/evaluar_pronunciacion_con_errores.json)). El audio es una
-[voz sintética](ejemplos/audio/pronunciacion_errores.wav) que dice *"I sink the berry best sings in life
-are free"*, mientras el texto esperado es *"I think the very best things in life are free"*:
-
-```json
-{"audio":"ejemplos/audio/pronunciacion_errores.wav","duracion_s":3.26,"idioma":"en-US","backend":"wav2vec2-local",
- "resumen":{"puntaje_global":90,"palabras":10,"palabras_con_errores":3,
-   "errores":{"sustitucion":3,"omision":0,"insercion":0},
-   "confusiones_frecuentes":[{"esperado":"θ","detectado":"s","veces":2},{"esperado":"v","detectado":"b","veces":1}]},
- "palabras":[{"palabra":"I","puntaje":100,"t":0.36},
-   {"palabra":"think","puntaje":75,"t":0.56,"esperado":"θ ɪ ŋ k","detectado":"s ɪ ŋ k",
-    "errores":[{"tipo":"sustitucion","esperado":"θ","detectado":"s"}]},
-   {"palabra":"the","puntaje":100,"t":0.84},
-   {"palabra":"very","puntaje":75,"t":0.96,"esperado":"v ɛ ɹ i","detectado":"b ɛ ɹ i",
-    "errores":[{"tipo":"sustitucion","esperado":"v","detectado":"b"}]}, "…"],
- "fonemas":{"esperados":"aɪ θ ɪ ŋ k ð ə v ɛ ɹ i b ɛ s t θ ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː",
-            "detectados":"aɪ s ɪ ŋ k ð ə b ɛ ɹ i b ɛ s t s ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː"},
- "confianza":{"valor":1.0,"nivel":"alta"},"advertencias":[]}
-```
-
-La [misma frase bien leída](ejemplos/salidas/evaluar_pronunciacion_correcta.json) obtiene 100.
-
-**Limitaciones.**
-
-- El modelo usa el contexto de la frase. A veces "corrige" un error si la palabra correcta es mucho más probable: por ejemplo, puede oír *think* en "I sink the weather is nice". Por eso conviene combinar frases con pares mínimos aislados.
-- Hasta 60 s por audio. Rinde mejor con frases completas que con palabras sueltas.
-- Está pensado para inglés (en-US / en-GB).
-
-**Backend Azure (opcional).** Requiere `uv sync --extra azure` y estas variables:
-
-- `VOICE_COACH_PRONUNCIACION_BACKEND=azure`
-- `AZURE_SPEECH_KEY`
-- `AZURE_SPEECH_REGION`
-
-Usa Azure Pronunciation Assessment (alfabeto IPA, granularidad de fonema, detección de palabras
-omitidas e insertadas) y normaliza la respuesta al mismo formato. Agrega `fluidez` y `completitud`
-al resumen. Con este backend **el audio se envía a Azure**; el backend local no envía nada fuera
-del equipo. Admite hasta 30 s por evaluación.
-
-### `leer_progreso(entradas=5)` y `registrar_progreso(entrada)`
-
-Guardan y leen el registro de sesiones en `$VOICE_COACH_DIR/progreso.md` (por defecto
-`~/VoiceCoach/progreso.md`). Cada sesión es una sección `## ` de markdown que redacta Claude. Son
-tools del servidor para que el registro funcione también en Claude Desktop, que no tiene acceso
-directo a tus archivos. [Ejemplo de entrada](ejemplos/salidas/leer_progreso.json):
-
-```markdown
-## 2026-10-23 · Canto · Escala de Do mayor (intermedio)
-
-- **Objetivo**: afinar la parte aguda de la escala.
-- **Métricas**: dentro de ±25 cents 62 % → 75 %; B4 −58 → −42 cents; E4 −30 cents sin cambio.
-- **Foco siguiente**: B4 y E4 a menos de ±20 cents con notas tenidas en *ng*.
-```
-
-## Prompts MCP
-
-| Prompt | Argumentos | Uso |
+| Variable | Default | Purpose |
 |---|---|---|
-| `sesion_canto` | `nivel`, `objetivo`, `referencia_midi` | calentamiento → ejercicio → `analizar_afinacion` → feedback → siguiente ejercicio |
-| `sesion_pronunciacion` | `nivel`, `foco` | pares mínimos y frases con `evaluar_pronunciacion` |
-| `sesion_oratoria` | `contexto`, `duracion_objetivo_s` | ritmo, pausas, muletillas y variación de tono/volumen con `metricas_discurso` |
+| `VOICE_COACH_DIR` | `~/VoiceCoach` | Recordings, analysis details and `progress.md` |
+| `VOICE_COACH_MAX_SECONDS` | `120` | Maximum `record_audio` length |
+| `VOICE_COACH_A4_HZ` | `440` | Tuning reference |
+| `VOICE_COACH_MAX_BYTES` | `2048` | Response size budget |
+| `VOICE_COACH_WHISPER_MODEL` | `small` | `tiny`, `base`, `small`, `medium`, `large-v3`… |
+| `VOICE_COACH_WHISPER_DEVICE` / `_COMPUTE_TYPE` | `cpu` / `int8` | CTranslate2 settings |
+| `VOICE_COACH_FILLERS` | — | Your own filler-word TOML (see [`fillers.toml`](src/voice_coach_mcp/speech/fillers.toml)) |
+| `VOICE_COACH_PRONUNCIATION_BACKEND` | `local` | `local` (wav2vec2) or `azure` |
+| `VOICE_COACH_PRONUNCIATION_DEVICE` | `auto` | `auto` (MPS when available), `cpu` or `mps` |
+| `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | — | Optional Azure Pronunciation Assessment backend (`pip install voice-coach-mcp[azure]`); the audio is then sent to Azure |
+| `PHONEMIZER_ESPEAK_LIBRARY` | auto-detected | Path to `libespeak-ng` if it is not in Homebrew's default location |
 
-En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; en Claude Code, como `/mcp__voice-coach__sesion_canto`.
-
-## Skill `coach-de-voz`
-
-[`skills/coach-de-voz/`](skills/coach-de-voz/SKILL.md) le enseña a Claude a usar estas tools
-como coach:
-
-- **Estructura de la sesión**: retomar el progreso, calentamiento, toma, análisis, feedback, siguiente toma y registro.
-- **Calidad primero**: qué hacer con cada advertencia y cuándo repetir la toma.
-- **Feedback concreto**: un foco por toma, con números y momentos, y una meta medible.
-- **Referencias por modalidad**, que se cargan solo cuando hacen falta:
-  - [canto](skills/coach-de-voz/references/canto.md): lectura de campos y problema → ejercicio;
-  - [pronunciación](skills/coach-de-voz/references/pronunciacion.md): errores típicos de hispanohablantes, articulación y pares mínimos;
-  - [oratoria](skills/coach-de-voz/references/oratoria.md): rangos de ppm, muletillas, tono y volumen;
-  - [feedback](skills/coach-de-voz/references/feedback.md) y [registro de progreso](skills/coach-de-voz/references/progreso.md).
-
-Instalación:
-
-- **Claude Code**: enlaza la carpeta en tus skills de usuario y reinicia Claude Code:
-  ```bash
-  ln -s /ruta/a/voice-coach-mcp/skills/coach-de-voz ~/.claude/skills/coach-de-voz
-  ```
-- **Claude Desktop**: genera el zip y súbelo en **Ajustes → Capacidades → Skills → Subir skill**:
-  ```bash
-  uv run voice-coach-mcp empaquetar-skill ~/Desktop/coach-de-voz.zip
-  ```
-
-Después basta con pedir, por ejemplo, "quiero practicar la afinación de esta escala" o "ayúdame a
-quitar muletillas de mi presentación". Claude carga la skill y conduce la sesión.
-
-## Configuración
-
-| Variable | Por defecto | Uso |
-|---|---|---|
-| `VOICE_COACH_DIR` | `~/VoiceCoach` | grabaciones (`grabaciones/`) y análisis |
-| `VOICE_COACH_MAX_SEGUNDOS` | `120` | duración máxima de `grabar_audio` |
-| `VOICE_COACH_A4_HZ` | `440` | diapasón de referencia |
-| `VOICE_COACH_MAX_BYTES` | `2048` | presupuesto de cada respuesta |
-| `VOICE_COACH_WHISPER_MODEL` | `small` | modelo de Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`, `turbo`…) |
-| `VOICE_COACH_WHISPER_DEVICE` | `cpu` | `cpu` o `cuda` (CTranslate2 no usa la GPU de los Mac) |
-| `VOICE_COACH_WHISPER_COMPUTE_TYPE` | `int8` | tipo de cómputo de CTranslate2 |
-| `VOICE_COACH_MULETILLAS` | — | TOML propio con listas de muletillas |
-| `VOICE_COACH_PRONUNCIACION_BACKEND` | `local` | `local` (wav2vec2) o `azure` |
-| `VOICE_COACH_PRONUNCIACION_DEVICE` | `auto` | `auto` (MPS si existe), `cpu` o `mps` |
-| `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | — | credenciales del backend Azure |
-| `PHONEMIZER_ESPEAK_LIBRARY` | autodetectada | ruta a `libespeak-ng.dylib` si no está en `/opt/homebrew/lib` ni en `/usr/local/lib` |
-
-## Cómo mide la afinación
-
-1. **Pitch**: pYIN (librosa) decide qué frames tienen voz y da una altura gruesa. Cada frame se
-   refina midiendo los picos de sus armónicos con interpolación parabólica, lo que da ~1 cent de
-   precisión entre C2 y C6.
-2. **Notas**: se separan por silencios, por caídas de energía de ≥ 9 dB (notas repetidas) y por
-   cambios de altura de más de medio tono sostenidos durante 60 ms. Para segmentar, el contorno se
-   suaviza ~200 ms, así el vibrato no parte la nota. Se descartan fragmentos de menos de 80 ms y
-   los que pYIN no considera voz.
-3. **Altura de la nota**: la mediana de su parte central (se ignora el 20 % inicial de ataque o
-   portamento). **Vibrato**: más de la mitad de la energía de la oscilación está entre 4 y 8 Hz.
-   **Inestable**: la desviación estándar supera 15 cents sin un vibrato regular.
-4. **Con MIDI**: se busca la octava y el desfase que mejor superponen ambos contornos. Luego las
-   notas se alinean con Needleman-Wunsch (altura + tiempo), permitiendo notas omitidas y extra, y se
-   ajusta una recta `t_cantado = a·t_ref + b` (tempo relativo y desfase). La entrada de cada nota
-   se mide respecto de esa recta.
-5. **Calidad**: clipping (> 0,1 % de muestras saturadas), ruido (SNR estimado < 15 dB entre los
-   frames fuertes y los débiles; requiere alguna pausa en la grabación) y duración.
-
-Limitaciones conocidas: está pensado para una sola voz. Con acompañamiento de fondo o polifonía,
-la detección se degrada. Dos notas iguales cantadas en legato perfecto, sin consonante ni
-respiración entre ellas, cuentan como una sola.
-
-## Desarrollo
+## Development
 
 ```bash
-uv run pytest                     # tests rápidos (audio sintético, micrófono simulado)
-uv run pytest -m modelos          # modelos reales: Whisper tiny (voz de espeak-ng) y wav2vec2 (voz de Piper vía uvx)
+git clone https://github.com/FabianIMV/voice-coach-mcp.git && cd voice-coach-mcp
+uv sync --extra speech --extra pronunciation
+uv run pytest                 # fast suite: synthetic audio, simulated microphone
+uv run pytest -m models       # real Whisper and wav2vec2 models on synthetic speech
 uv run ruff check . && uv run ruff format --check .
-uv run python ejemplos/generar_ejemplos.py   # regenera ejemplos/ llamando al servidor por stdio
 ```
 
-El servidor usa el SDK oficial `mcp` 2.x, donde `FastMCP` pasó a llamarse `MCPServer`
-(`from mcp.server.mcpserver import MCPServer`); la API de decoradores es la misma.
-
-Estructura:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the design principles and the release process.
 
 ```
 src/voice_coach_mcp/
-  server.py        tools y prompts MCP (capa fina)
-  audio/           carga, grabación y calidad del audio
-  canto/           pitch, teoría musical, referencia MIDI, afinación
-  habla/           transcripción (faster-whisper), métricas de discurso, listas de muletillas
-  pronunciacion/   fonemas esperados, alineación, backends wav2vec2 y Azure
-  salida.py        presupuesto de 2 KB y JSON de detalle
-  progreso.py      registro de sesiones en ~/VoiceCoach/progreso.md
-  prompts.py       textos de los prompts de sesión
-skills/coach-de-voz/   skill para conducir las sesiones
-tests/             tests con audio y MIDI sintéticos
-ejemplos/          audios sintéticos y salidas reales de cada tool
+  server.py         MCP tools and prompts (thin layer)
+  audio/            loading, recording and quality checks
+  singing/          pitch tracking, music theory, MIDI reference, pitch accuracy
+  speech/           transcription, speech metrics, filler lists
+  pronunciation/    expected phonemes, alignment, wav2vec2 and Azure backends
+  output.py         2 KB response budget and details file
+  progress.py       progress log
+skills/voice-coach/ coaching skill (also bundled in the Python package)
+examples/           synthetic audio and real tool outputs
 ```
 
-## Licencias
+## License and credits
 
-El repositorio todavía no declara una licencia propia. Ten en cuenta que algunas dependencias
-opcionales son GPL-3.0: phonemizer (extra `pronunciacion`) y la herramienta espeak-ng. Los ejemplos de voz se generaron con espeak-ng y con Piper (voz
-LJSpeech, de dominio público); Piper no es una dependencia del proyecto.
+MIT © FabianIMV. Built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
+[librosa](https://librosa.org), [wav2vec2 phoneme recognition](https://huggingface.co/facebook/wav2vec2-lv-60-espeak-cv-ft)
+and the official [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk). The
+optional pronunciation extra uses [phonemizer](https://github.com/bootphon/phonemizer) and
+[espeak-ng](https://github.com/espeak-ng/espeak-ng), both GPL-3.0. Example voices were
+synthesized with espeak-ng and [Piper](https://github.com/rhasspy/piper) (public-domain LJSpeech voice).

@@ -1,70 +1,71 @@
-"""Textos de los prompts MCP que estructuran una sesión de práctica.
+"""Texts of the MCP prompts that structure a practice session.
 
-Los prompts guían a Claude en el orden de la sesión y en qué campos mirar; el criterio
-pedagógico lo pone Claude (o la skill coach-de-voz), no el servidor.
+The prompts tell Claude the order of the session and which fields to look at; the teaching
+judgment comes from Claude (or the voice-coach skill), not from the server.
 """
 
-_CIERRE = """
-Reglas de la sesión:
-- Al empezar, llama a leer_progreso y retoma el foco de la última sesión; al terminar, registra la
-  sesión con registrar_progreso (fecha, ejercicio, métricas antes → después, foco siguiente).
-- Pide una grabación por intento y analízala antes de dar feedback; no adivines lo que no mediste.
-- Si la respuesta trae advertencias o confianza baja, dilo y propone repetir la toma antes de opinar.
-- Da como máximo un foco por intento, citando números y momentos concretos (segundos, nota, palabra).
-- Compara cada intento con el anterior y cierra con el siguiente ejercicio concreto.
+_RULES = """
+Session rules:
+- Reply in the user's language.
+- At the start, call read_progress and pick up the focus of the last session; at the end, log the
+  session with log_progress (date, exercise, metrics before → after, next focus).
+- Ask for one recording per attempt and analyze it before giving feedback; never guess what was not measured.
+- If the response has warnings or low confidence, say so and suggest repeating the take before judging.
+- Give at most one focus per attempt, citing concrete numbers and moments (seconds, note, word).
+- Compare each attempt with the previous one and close with the next concrete exercise.
 """
 
 
-def sesion_canto(nivel: str = "intermedio", objetivo: str = "", referencia_midi: str = "") -> str:
-    referencia = (
-        f"Usa la referencia MIDI `{referencia_midi}` en analizar_afinacion (parámetro referencia_midi)."
-        if referencia_midi
-        else "No hay referencia MIDI: analiza contra la nota temperada más cercana o, si el usuario "
-        "indica la tonalidad, pásala en el parámetro tonalidad."
+def singing_session(level: str = "intermediate", goal: str = "", reference_midi: str = "") -> str:
+    reference = (
+        f"Use the MIDI reference `{reference_midi}` in analyze_pitch (reference_midi argument)."
+        if reference_midi
+        else "There is no MIDI reference: analyze against the nearest equal-tempered note or, if the user "
+        "names the key, pass it in the key argument."
     )
-    return f"""Conduce una sesión de canto para un nivel {nivel}.{f" Objetivo del usuario: {objetivo}." if objetivo else ""}
+    return f"""Run a singing session for a {level} level.{f" User goal: {goal}." if goal else ""}
 
-1. Calentamiento (2–3 min): propone un ejercicio corto (sirenas, notas tenidas, escala de 5 notas)
-   adaptado al nivel. Graba una nota tenida cómoda con grabar_audio (5–8 s) y analízala con
-   analizar_afinacion para tener una línea base de afinación y estabilidad.
-2. Ejercicio principal: explica qué cantar y por cuánto tiempo. Graba con grabar_audio
-   (segundos suficientes + 2 de margen). {referencia}
-3. Análisis: lee resumen.porcentaje_dentro_25_cents, tendencia (plano/sostenido), deriva_cents,
-   estabilidad (estable/vibrato/inestable) y, con referencia, notas_incorrectas, omitidas y entradas.
-   Identifica las 1–2 notas con mayor |cents| o con entrada tarde/temprano.
-4. Feedback: un foco concreto (por ejemplo, "la nota E4 en el segundo 3,2 quedó 35 cents abajo"),
-   por qué importa y una indicación práctica para corregirlo.
-5. Siguiente ejercicio: aísla el problema (repetir la frase, más lento, o solo el intervalo difícil),
-   vuelve a grabar y compara con el intento anterior.
-{_CIERRE}"""
-
-
-def sesion_pronunciacion(nivel: str = "intermedio", foco: str = "") -> str:
-    return f"""Conduce una sesión de pronunciación en inglés (en-US) para un nivel {nivel}.{f" Foco pedido: {foco}." if foco else ""}
-
-1. Calentamiento: 2–3 pares mínimos relacionados con el foco (p. ej., ship/sheep, think/sink).
-   Pide leerlos en voz alta, graba con grabar_audio y evalúa con evaluar_pronunciacion pasando
-   el texto exacto en texto_esperado.
-2. Ejercicio principal: una o dos frases cortas que contengan los fonemas objetivo. Graba y evalúa.
-3. Análisis: revisa el puntaje global, las palabras con menor puntaje y el tipo de error
-   (sustitución esperado→detectado, omisión, inserción). Si la confianza es baja o aparece
-   texto_no_coincide, pide repetir leyendo exactamente el texto.
-4. Feedback: un fonema por intento; describe cómo se articula (posición de lengua, labios, sonoridad)
-   y contrástalo con el fonema que se detectó.
-5. Siguiente ejercicio: más pares mínimos o una frase nueva con ese fonema; vuelve a medir y compara.
-{_CIERRE}"""
+1. Warm-up (2–3 min): suggest a short exercise (sirens, sustained notes, 5-note scale) suited to
+   the level. Record a comfortable sustained note with record_audio (5–8 s) and analyze it with
+   analyze_pitch to get a baseline for pitch accuracy and stability.
+2. Main exercise: explain what to sing and for how long. Record with record_audio
+   (enough seconds + 2 s of margin). {reference}
+3. Analysis: read summary.pct_within_25_cents, tendency (flat/sharp), drift_cents, stability
+   (stable/vibrato/unstable) and, with a reference, wrong_notes, missed and onsets.
+   Find the 1–2 notes with the largest |cents| or with a late/early onset.
+4. Feedback: one concrete focus (e.g. "the E4 at 3.2 s was 35 cents flat"), why it matters and a
+   practical cue to fix it.
+5. Next exercise: isolate the problem (repeat the phrase, slower, or only the hard interval),
+   record again and compare with the previous attempt.
+{_RULES}"""
 
 
-def sesion_oratoria(contexto: str = "", duracion_objetivo_s: int = 60) -> str:
-    return f"""Conduce una sesión de oratoria.{f" Contexto: {contexto}." if contexto else ""} Duración objetivo de cada toma: {duracion_objetivo_s} s.
+def pronunciation_session(level: str = "intermediate", focus: str = "") -> str:
+    return f"""Run an English (en-US) pronunciation session for a {level} level.{f" Requested focus: {focus}." if focus else ""}
 
-1. Calentamiento: respiración y una lectura breve en voz alta (20–30 s). Graba y corre
-   metricas_discurso para una línea base de ritmo, pausas y variación de tono/volumen.
-2. Ejercicio principal: pide hablar sobre el tema durante ~{duracion_objetivo_s} s. Graba con
-   grabar_audio y analiza con metricas_discurso (idioma del discurso).
-3. Análisis: palabras_por_minuto, pausas largas (con timestamp), muletillas por minuto y cuáles,
-   variación de tono (monotonía) y de volumen. Usa la transcripción para ubicar los momentos.
-4. Feedback: un foco por toma (por ejemplo, "6 'este' en 60 s, sobre todo al empezar ideas"),
-   con una técnica concreta para corregirlo.
-5. Siguiente ejercicio: repetir el mismo contenido aplicando el foco, y comparar las métricas.
-{_CIERRE}"""
+1. Warm-up: 2–3 minimal pairs related to the focus (e.g. ship/sheep, think/sink). Ask the user
+   to read them aloud, record with record_audio and assess with assess_pronunciation passing the
+   exact text in expected_text.
+2. Main exercise: one or two short sentences containing the target phonemes. Record and assess.
+3. Analysis: check the overall score, the lowest-scoring words and the error type
+   (substitution expected→detected, deletion, insertion). If confidence is low or text_mismatch
+   appears, ask the user to repeat reading exactly the text.
+4. Feedback: one phoneme per attempt; describe how it is articulated (tongue, lips, voicing) and
+   contrast it with the phoneme that was detected.
+5. Next exercise: more minimal pairs or a new sentence with that phoneme; measure again and compare.
+{_RULES}"""
+
+
+def speaking_session(context: str = "", target_duration_s: int = 60) -> str:
+    return f"""Run a public-speaking session.{f" Context: {context}." if context else ""} Target length of each take: {target_duration_s} s.
+
+1. Warm-up: breathing and a short read-aloud (20–30 s). Record it and run speech_metrics for a
+   baseline of pace, pauses and pitch/volume variation.
+2. Main exercise: ask the user to talk about the topic for ~{target_duration_s} s. Record with
+   record_audio and analyze with speech_metrics (language of the speech).
+3. Analysis: words_per_minute, long pauses (with timestamps), fillers per minute and which ones,
+   pitch variation (monotone) and volume variation. Use the transcript to locate the moments.
+4. Feedback: one focus per take (e.g. "6 'um' in 60 s, mostly when starting a new idea"), with a
+   concrete technique to fix it.
+5. Next exercise: repeat the same content applying the focus, and compare the metrics.
+{_RULES}"""

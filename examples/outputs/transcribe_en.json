@@ -1,0 +1,224 @@
+{
+  "call": {
+    "tool": "transcribe",
+    "arguments": {
+      "audio": "examples/audio/speech_en.wav"
+    }
+  },
+  "response": {
+    "audio": "examples/audio/speech_en.wav",
+    "duration_s": 15.79,
+    "language": "en",
+    "language_prob": 0.96,
+    "text": "Um, so today I want to talk about, uh, public speaking. You know, most people feel nervous, like, before a big talk. I mean, that is completely normal. The key is to practice with real feedback.",
+    "segments": [
+      {
+        "t": 0.0,
+        "end": 4.26,
+        "text": "Um, so today I want to talk about, uh, public speaking."
+      },
+      {
+        "t": 5.32,
+        "end": 9.58,
+        "text": "You know, most people feel nervous, like, before a big talk."
+      },
+      {
+        "t": 10.04,
+        "end": 11.96,
+        "text": "I mean, that is completely normal."
+      },
+      {
+        "t": 12.88,
+        "end": 14.92,
+        "text": "The key is to practice with real feedback."
+      }
+    ],
+    "words": [
+      {
+        "w": "Um,",
+        "t": 0.0,
+        "end": 0.58
+      },
+      {
+        "w": "so",
+        "t": 0.84,
+        "end": 1.0
+      },
+      {
+        "w": "today",
+        "t": 1.0,
+        "end": 1.3
+      },
+      {
+        "w": "I",
+        "t": 1.3,
+        "end": 1.5
+      },
+      {
+        "w": "want",
+        "t": 1.5,
+        "end": 1.74
+      },
+      {
+        "w": "to",
+        "t": 1.74,
+        "end": 2.0
+      },
+      {
+        "w": "talk",
+        "t": 2.0,
+        "end": 2.24
+      },
+      {
+        "w": "about,",
+        "t": 2.24,
+        "end": 2.66
+      },
+      {
+        "w": "uh,",
+        "t": 3.0,
+        "end": 3.2
+      },
+      {
+        "w": "public",
+        "t": 3.48,
+        "end": 3.78
+      },
+      {
+        "w": "speaking.",
+        "t": 3.78,
+        "end": 4.26
+      },
+      {
+        "w": "You",
+        "t": 5.32,
+        "end": 5.58
+      },
+      {
+        "w": "know,",
+        "t": 5.58,
+        "end": 5.82
+      },
+      {
+        "w": "most",
+        "t": 6.18,
+        "end": 6.44
+      },
+      {
+        "w": "people",
+        "t": 6.44,
+        "end": 6.82
+      },
+      {
+        "w": "feel",
+        "t": 6.82,
+        "end": 7.14
+      },
+      {
+        "w": "nervous,",
+        "t": 7.14,
+        "end": 7.62
+      },
+      {
+        "w": "like,",
+        "t": 7.92,
+        "end": 8.2
+      },
+      {
+        "w": "before",
+        "t": 8.58,
+        "end": 8.78
+      },
+      {
+        "w": "a",
+        "t": 8.78,
+        "end": 9.02
+      },
+      {
+        "w": "big",
+        "t": 9.02,
+        "end": 9.18
+      },
+      {
+        "w": "talk.",
+        "t": 9.18,
+        "end": 9.58
+      },
+      {
+        "w": "I",
+        "t": 10.04,
+        "end": 10.14
+      },
+      {
+        "w": "mean,",
+        "t": 10.14,
+        "end": 10.38
+      },
+      {
+        "w": "that",
+        "t": 10.76,
+        "end": 10.94
+      },
+      {
+        "w": "is",
+        "t": 10.94,
+        "end": 11.1
+      },
+      {
+        "w": "completely",
+        "t": 11.1,
+        "end": 11.52
+      },
+      {
+        "w": "normal.",
+        "t": 11.52,
+        "end": 11.96
+      },
+      {
+        "w": "The",
+        "t": 12.88,
+        "end": 13.06
+      },
+      {
+        "w": "key",
+        "t": 13.06,
+        "end": 13.26
+      },
+      {
+        "w": "is",
+        "t": 13.26,
+        "end": 13.4
+      },
+      {
+        "w": "to",
+        "t": 13.4,
+        "end": 13.56
+      },
+      {
+        "w": "practice",
+        "t": 13.56,
+        "end": 13.94
+      },
+      {
+        "w": "with",
+        "t": 13.94,
+        "end": 14.24
+      },
+      {
+        "w": "real",
+        "t": 14.24,
+        "end": 14.52
+      },
+      {
+        "w": "feedback.",
+        "t": 14.52,
+        "end": 14.92
+      }
+    ],
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

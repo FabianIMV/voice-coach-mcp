@@ -1,0 +1,87 @@
+{
+  "call": {
+    "tool": "assess_pronunciation",
+    "arguments": {
+      "audio": "examples/audio/pronunciation_correct.wav",
+      "expected_text": "I think the very best things in life are free."
+    }
+  },
+  "response": {
+    "audio": "examples/audio/pronunciation_correct.wav",
+    "duration_s": 3.12,
+    "language": "en-US",
+    "backend": "wav2vec2-local",
+    "summary": {
+      "overall_score": 100,
+      "words": 10,
+      "words_with_errors": 0,
+      "errors": {
+        "substitution": 0,
+        "deletion": 0,
+        "insertion": 0
+      },
+      "frequent_confusions": []
+    },
+    "words": [
+      {
+        "word": "I",
+        "score": 100,
+        "t": 0.34
+      },
+      {
+        "word": "think",
+        "score": 100,
+        "t": 0.5
+      },
+      {
+        "word": "the",
+        "score": 100,
+        "t": 0.72
+      },
+      {
+        "word": "very",
+        "score": 100,
+        "t": 0.82
+      },
+      {
+        "word": "best",
+        "score": 100,
+        "t": 1.1
+      },
+      {
+        "word": "things",
+        "score": 100,
+        "t": 1.42
+      },
+      {
+        "word": "in",
+        "score": 100,
+        "t": 1.78
+      },
+      {
+        "word": "life",
+        "score": 100,
+        "t": 1.96
+      },
+      {
+        "word": "are",
+        "score": 100,
+        "t": 2.26
+      },
+      {
+        "word": "free",
+        "score": 100,
+        "t": 2.44
+      }
+    ],
+    "phonemes": {
+      "expected": "aɪ θ ɪ ŋ k ð ə v ɛ ɹ i b ɛ s t θ ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː",
+      "detected": "aɪ θ ɪ ŋ k ð ə v ɛ ɹ i b ɛ s t θ ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː"
+    },
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

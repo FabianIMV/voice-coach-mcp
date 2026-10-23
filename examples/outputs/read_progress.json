@@ -1,0 +1,16 @@
+{
+  "call": {
+    "tool": "read_progress",
+    "arguments": {
+      "entries": 3
+    }
+  },
+  "response": {
+    "file": "~/VoiceCoach/progress.md",
+    "total_entries": 1,
+    "entries_shown": 1,
+    "entries": [
+      "## 2026-10-23 · Singing · C major scale (intermediate)\n\n- **Goal**: tune the high part of the scale.\n- **Takes**: 3 (`c-scale-take1` … `take3`)\n- **Metrics**: within ±25 cents 62% → 75%; B4 −58 → −42 cents; E4 −30 cents unchanged.\n- **What improved**: the final C5 was centered (−2 cents) with a steady 5.5 Hz vibrato.\n- **Next focus**: B4 and E4 within ±20 cents with sustained notes on *ng*."
+    ]
+  }
+}

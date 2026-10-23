@@ -8,7 +8,7 @@ import anyio
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from . import __version__, prompts
+from . import __version__, progreso, prompts
 from .audio.grabacion import grabar
 from .canto.afinacion import analizar
 from .config import cargar_config
@@ -175,6 +175,29 @@ async def evaluar_pronunciacion(audio: str, texto_esperado: str, idioma: str = "
     """
     config = cargar_config()
     return await anyio.to_thread.run_sync(evaluar, audio, texto_esperado, config, idioma)
+
+
+@mcp.tool()
+@_errores_legibles
+async def leer_progreso(entradas: int = 5) -> str:
+    """Lee las últimas sesiones del registro de progreso (~/VoiceCoach/progreso.md).
+
+    Úsala al empezar una sesión para retomar el foco anterior. Devuelve `archivo`,
+    `entradas_totales` y `entradas` (markdown de cada sesión, de la más antigua a la más reciente).
+    """
+    return a_json(progreso.leer(cargar_config(), entradas))
+
+
+@mcp.tool()
+@_errores_legibles
+async def registrar_progreso(entrada: str) -> str:
+    """Agrega una sesión al registro de progreso (~/VoiceCoach/progreso.md).
+
+    Args:
+        entrada: markdown de la sesión. Conviene que empiece con "## AAAA-MM-DD · modalidad ·
+            ejercicio"; si no empieza con "## ", se le agrega la fecha y hora como título.
+    """
+    return a_json(progreso.registrar(cargar_config(), entrada))
 
 
 @mcp.prompt()

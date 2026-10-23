@@ -28,6 +28,8 @@ async def test_lista_tools_y_prompts():
         "transcribir",
         "metricas_discurso",
         "evaluar_pronunciacion",
+        "leer_progreso",
+        "registrar_progreso",
     }
     assert prompts == {"sesion_canto", "sesion_pronunciacion", "sesion_oratoria"}
 

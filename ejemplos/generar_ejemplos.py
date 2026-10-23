@@ -46,6 +46,14 @@ FRASE_CON_ERRORES = (
     "I sink the berry best sings in life are free."  # θ→s y v→b, típicos de hispanohablantes
 )
 
+ENTRADA_PROGRESO = """## 2026-10-23 · Canto · Escala de Do mayor (intermedio)
+
+- **Objetivo**: afinar la parte aguda de la escala.
+- **Tomas**: 3 (`escala-do-toma1` … `toma3`)
+- **Métricas**: dentro de ±25 cents 62 % → 75 %; B4 −58 → −42 cents; E4 −30 cents sin cambio.
+- **Lo que mejoró**: la C5 final quedó centrada (−2 cents) con vibrato regular de 5,5 Hz.
+- **Foco siguiente**: B4 y E4 a menos de ±20 cents con notas tenidas en *ng*."""
+
 # Melodía original de 8 compases simples (sin derechos), 0,5 s por negra.
 MELODIA = [
     (67, 1),
@@ -60,6 +68,10 @@ MELODIA = [
     (69, 1),
     (67, 4),
 ]
+
+
+def _o_existente(ruta: Path, texto: str) -> Path:
+    return ruta if ruta.exists() else tts.sintetizar_piper(texto, ruta)
 
 
 def preparar_audios() -> dict[str, Path]:
@@ -107,10 +119,9 @@ def preparar_audios() -> dict[str, Path]:
     )
     rutas["discurso_es"] = tts.sintetizar(DISCURSO_ES, "es", AUDIO / "discurso_es.wav")
     rutas["discurso_en"] = tts.sintetizar(DISCURSO_EN, "en", AUDIO / "discurso_en.wav", 160)
-    rutas["pron_correcta"] = tts.sintetizar_piper(FRASE, AUDIO / "pronunciacion_correcta.wav")
-    rutas["pron_errores"] = tts.sintetizar_piper(
-        FRASE_CON_ERRORES, AUDIO / "pronunciacion_errores.wav"
-    )
+    # Piper no es determinista: se reutilizan los audios existentes para que los ejemplos no cambien.
+    rutas["pron_correcta"] = _o_existente(AUDIO / "pronunciacion_correcta.wav", FRASE)
+    rutas["pron_errores"] = _o_existente(AUDIO / "pronunciacion_errores.wav", FRASE_CON_ERRORES)
     return rutas
 
 
@@ -160,6 +171,8 @@ async def llamar_por_stdio(rutas: dict[str, Path], temporal: str) -> dict[str, d
             "metricas_discurso",
             {"audio": str(rutas["discurso_en"]), "idioma": "en"},
         ),
+        ("registrar_progreso", "registrar_progreso", {"entrada": ENTRADA_PROGRESO}),
+        ("leer_progreso", "leer_progreso", {"entradas": 3}),
     ]
     salidas = {}
     async with Client(servidor, read_timeout_seconds=600) as cliente:

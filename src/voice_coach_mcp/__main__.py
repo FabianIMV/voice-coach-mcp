@@ -3,6 +3,7 @@
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 
 def main() -> None:
@@ -13,6 +14,11 @@ def main() -> None:
         "descargar-modelos",
         help="descarga los modelos de los extras instalados para que la primera llamada sea rápida",
     )
+    empaquetar = sub.add_parser(
+        "empaquetar-skill",
+        help="crea un .zip de la skill coach-de-voz para subirla a Claude Desktop",
+    )
+    empaquetar.add_argument("destino", nargs="?", default="coach-de-voz.zip")
     args = parser.parse_args()
 
     # stdout es el canal del protocolo MCP: todo log va a stderr.
@@ -26,6 +32,22 @@ def main() -> None:
         mcp.run("stdio")
     elif args.comando == "descargar-modelos":
         descargar_modelos()
+    elif args.comando == "empaquetar-skill":
+        print(empaquetar_skill(Path(args.destino)), file=sys.stderr)
+
+
+def empaquetar_skill(destino: Path) -> Path:
+    """Zip con la carpeta coach-de-voz/ en la raíz, como lo espera Claude Desktop."""
+    import zipfile
+
+    origen = Path(__file__).resolve().parents[2] / "skills" / "coach-de-voz"
+    if not (origen / "SKILL.md").exists():
+        raise SystemExit(f"No encuentro la skill en {origen}")
+    with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
+        for archivo in sorted(origen.rglob("*")):
+            if archivo.is_file():
+                z.write(archivo, Path("coach-de-voz") / archivo.relative_to(origen))
+    return destino.resolve()
 
 
 def descargar_modelos() -> None:

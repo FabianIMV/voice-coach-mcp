@@ -19,7 +19,7 @@ pronunciación en inglés y oratoria.
 | 1 | Esqueleto, `grabar_audio`, `analizar_afinacion`, prompts | ✅ |
 | 2 | `transcribir`, `metricas_discurso` | ✅ |
 | 3 | `evaluar_pronunciacion` (wav2vec2 local / Azure opcional) | ✅ |
-| 4 | Skill `coach-de-voz` | pendiente |
+| 4 | Skill `coach-de-voz` + registro de progreso | ✅ |
 
 ## Requisitos
 
@@ -293,6 +293,21 @@ omitidas e insertadas) y normaliza la respuesta al mismo formato. Agrega `fluide
 al resumen. Con este backend **el audio se envía a Azure**; el backend local no envía nada fuera
 del equipo. Admite hasta 30 s por evaluación.
 
+### `leer_progreso(entradas=5)` y `registrar_progreso(entrada)`
+
+Guardan y leen el registro de sesiones en `$VOICE_COACH_DIR/progreso.md` (por defecto
+`~/VoiceCoach/progreso.md`). Cada sesión es una sección `## ` de markdown que redacta Claude. Son
+tools del servidor para que el registro funcione también en Claude Desktop, que no tiene acceso
+directo a tus archivos. [Ejemplo de entrada](ejemplos/salidas/leer_progreso.json):
+
+```markdown
+## 2026-10-23 · Canto · Escala de Do mayor (intermedio)
+
+- **Objetivo**: afinar la parte aguda de la escala.
+- **Métricas**: dentro de ±25 cents 62 % → 75 %; B4 −58 → −42 cents; E4 −30 cents sin cambio.
+- **Foco siguiente**: B4 y E4 a menos de ±20 cents con notas tenidas en *ng*.
+```
+
 ## Prompts MCP
 
 | Prompt | Argumentos | Uso |
@@ -302,6 +317,34 @@ del equipo. Admite hasta 30 s por evaluación.
 | `sesion_oratoria` | `contexto`, `duracion_objetivo_s` | ritmo, pausas, muletillas y variación de tono/volumen con `metricas_discurso` |
 
 En Claude Desktop aparecen en el botón **+** → *Agregar desde voice-coach*; en Claude Code, como `/mcp__voice-coach__sesion_canto`.
+
+## Skill `coach-de-voz`
+
+[`skills/coach-de-voz/`](skills/coach-de-voz/SKILL.md) le enseña a Claude a usar estas tools
+como coach:
+
+- **Estructura de la sesión**: retomar el progreso, calentamiento, toma, análisis, feedback, siguiente toma y registro.
+- **Calidad primero**: qué hacer con cada advertencia y cuándo repetir la toma.
+- **Feedback concreto**: un foco por toma, con números y momentos, y una meta medible.
+- **Referencias por modalidad**, que se cargan solo cuando hacen falta:
+  - [canto](skills/coach-de-voz/references/canto.md): lectura de campos y problema → ejercicio;
+  - [pronunciación](skills/coach-de-voz/references/pronunciacion.md): errores típicos de hispanohablantes, articulación y pares mínimos;
+  - [oratoria](skills/coach-de-voz/references/oratoria.md): rangos de ppm, muletillas, tono y volumen;
+  - [feedback](skills/coach-de-voz/references/feedback.md) y [registro de progreso](skills/coach-de-voz/references/progreso.md).
+
+Instalación:
+
+- **Claude Code**: enlaza la carpeta en tus skills de usuario y reinicia Claude Code:
+  ```bash
+  ln -s /ruta/a/voice-coach-mcp/skills/coach-de-voz ~/.claude/skills/coach-de-voz
+  ```
+- **Claude Desktop**: genera el zip y súbelo en **Ajustes → Capacidades → Skills → Subir skill**:
+  ```bash
+  uv run voice-coach-mcp empaquetar-skill ~/Desktop/coach-de-voz.zip
+  ```
+
+Después basta con pedir, por ejemplo, "quiero practicar la afinación de esta escala" o "ayúdame a
+quitar muletillas de mi presentación". Claude carga la skill y conduce la sesión.
 
 ## Configuración
 
@@ -365,7 +408,9 @@ src/voice_coach_mcp/
   habla/           transcripción (faster-whisper), métricas de discurso, listas de muletillas
   pronunciacion/   fonemas esperados, alineación, backends wav2vec2 y Azure
   salida.py        presupuesto de 2 KB y JSON de detalle
+  progreso.py      registro de sesiones en ~/VoiceCoach/progreso.md
   prompts.py       textos de los prompts de sesión
+skills/coach-de-voz/   skill para conducir las sesiones
 tests/             tests con audio y MIDI sintéticos
 ejemplos/          audios sintéticos y salidas reales de cada tool
 ```

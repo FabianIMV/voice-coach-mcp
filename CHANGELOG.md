@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-23
+
+### Changed
+
+- The Claude Code plugin and the MCPB extension start the server with `uv run --frozen`, so the
+  dependencies always come from `uv.lock` (required by the Claude plugin directory).
+- Dropped the CPU-only PyTorch index from `pyproject.toml`: every dependency now comes from PyPI.
+- README: privacy and network access section; absolute links and image so it renders on PyPI.
+
+### Added
+
+- README screenshots of a real speaking session and a singing session in Claude Code.
+- `glama.json` so the maintainer can claim the server on Glama.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added
@@ -25,5 +39,6 @@ All notable changes to this project are documented in this file. The format is b
 - Distribution as a PyPI package, a Claude Code plugin marketplace, a Claude Desktop extension
   (`.mcpb`) and an MCP Registry entry.
 
-[Unreleased]: https://github.com/FabianIMV/voice-coach-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/FabianIMV/voice-coach-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/FabianIMV/voice-coach-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/FabianIMV/voice-coach-mcp/releases/tag/v0.1.0

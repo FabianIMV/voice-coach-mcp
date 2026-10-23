@@ -12,3 +12,5 @@ examples/
 .claude-plugin/
 server.json
 CONTRIBUTING.md
+assets/screenshots/
+glama.json

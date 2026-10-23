@@ -107,11 +107,11 @@ Just talk to Claude:
 - *"Analyze this voice memo against melody.mid"* (any wav/mp3/m4a path works).
 - *"How am I doing?"* (Claude reads your progress log).
 
-A real session in Claude Code: a 60-second talk about work, then a request to sing.
+Real sessions in Claude Code: a 60-second talk about work, and a singing baseline on one held note.
 
 ![Speaking session in Claude Code: pace, pauses, monotone pitch and one concrete focus](https://raw.githubusercontent.com/FabianIMV/voice-coach-mcp/main/assets/screenshots/speaking-session.webp)
 
-![Singing request: Claude asks for a MIDI file, a key or nothing before recording](https://raw.githubusercontent.com/FabianIMV/voice-coach-mcp/main/assets/screenshots/singing-session.webp)
+![Singing session: warm-up, a baseline take measured in cents, and one focus for the retake](https://raw.githubusercontent.com/FabianIMV/voice-coach-mcp/main/assets/screenshots/singing-session.webp)
 
 Guided sessions are also available as MCP prompts: `singing_session`, `pronunciation_session`
 and `speaking_session` (in Claude Code: `/mcp__voice-coach__singing_session`).

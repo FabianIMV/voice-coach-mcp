@@ -17,7 +17,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
-- README screenshots of a real speaking session and a singing request in Claude Code.
+- README screenshots of a real speaking session and a singing session in Claude Code.
 - `glama.json` so the maintainer can claim the server on Glama.
 
 ## [0.1.0] - 2026-10-23

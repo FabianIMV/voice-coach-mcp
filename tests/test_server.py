@@ -1,13 +1,14 @@
-"""El servidor completo a través de un cliente MCP en memoria."""
+"""The whole server through an in-memory MCP client."""
 
 import json
+import sys
 
 import pytest
 from mcp.client import Client
 
-from tests import falsa_transcripcion as ft
-from tests import falso_sounddevice
-from tests import sintetico as s
+from tests import fake_sounddevice
+from tests import fake_transcript as ft
+from tests import synthetic as s
 from voice_coach_mcp.server import mcp
 
 pytestmark = pytest.mark.anyio
@@ -18,158 +19,157 @@ def anyio_backend():
     return "asyncio"
 
 
-async def test_lista_tools_y_prompts():
-    async with Client(mcp) as cliente:
-        tools = {t.name for t in (await cliente.list_tools()).tools}
-        prompts = {p.name for p in (await cliente.list_prompts()).prompts}
-    assert tools == {
-        "grabar_audio",
-        "analizar_afinacion",
-        "transcribir",
-        "metricas_discurso",
-        "evaluar_pronunciacion",
-        "leer_progreso",
-        "registrar_progreso",
-    }
-    assert prompts == {"sesion_canto", "sesion_pronunciacion", "sesion_oratoria"}
+async def test_lists_tools_and_prompts():
+    async with Client(mcp) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        prompts = {p.name for p in (await client.list_prompts()).prompts}
+    assert set(tools) == {
+        "record_audio", "analyze_pitch", "transcribe", "speech_metrics",
+        "assess_pronunciation", "read_progress", "log_progress",
+    }  # fmt: skip
+    assert all(t.annotations and t.annotations.title for t in tools.values())
+    assert tools["read_progress"].annotations.read_only_hint
+    assert prompts == {"singing_session", "pronunciation_session", "speaking_session"}
 
 
-async def test_analizar_afinacion(config, tmp_path):
-    ruta = s.guardar(tmp_path / "a.wav", s.secuencia([(69.2, 0.6), (71, 0.6)]))
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("analizar_afinacion", {"audio": str(ruta)})
+async def test_analyze_pitch(config, tmp_path):
+    path = s.save(tmp_path / "a.wav", s.sequence([(69.2, 0.6), (71, 0.6)]))
+    async with Client(mcp) as client:
+        r = await client.call_tool("analyze_pitch", {"audio": str(path)})
     assert not r.is_error
-    datos = json.loads(r.content[0].text)
-    assert [n["nota"] for n in datos["notas"]] == ["A4", "B4"]
-    assert datos["notas"][0]["cents"] == pytest.approx(20, abs=3)
+    data = json.loads(r.content[0].text)
+    assert [n["note"] for n in data["notes"]] == ["A4", "B4"]
+    assert data["notes"][0]["cents"] == pytest.approx(20, abs=3)
 
 
-async def test_errores_llegan_legibles(config):
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("analizar_afinacion", {"audio": "no-existe.wav"})
-        r2 = await cliente.call_tool(
-            "analizar_afinacion", {"audio": "no-existe.wav", "tonalidad": "X"}
-        )
-    assert r.is_error and "No encuentro el archivo de audio" in r.content[0].text
+async def test_errors_are_readable(config):
+    async with Client(mcp) as client:
+        r = await client.call_tool("analyze_pitch", {"audio": "missing.wav"})
+        r2 = await client.call_tool("analyze_pitch", {"audio": "missing.wav", "key": "X"})
+    assert r.is_error and "Audio file not found" in r.content[0].text
     assert r2.is_error
 
 
-async def test_grabar_y_analizar_por_nombre(config, monkeypatch):
-    falso_sounddevice.instalar(monkeypatch, samplerate=44_100)
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("grabar_audio", {"segundos": 1.5, "nombre": "toma1"})
-        grabacion = json.loads(r.content[0].text)
-        r2 = await cliente.call_tool("analizar_afinacion", {"audio": "toma1"})
-    assert grabacion["audio"].endswith("toma1.wav")
-    datos = json.loads(r2.content[0].text)
-    assert datos["notas"][0]["nota"] == "A4"
-    assert abs(datos["notas"][0]["cents"]) <= 2
+async def test_record_and_analyze_by_name(config, monkeypatch):
+    fake_sounddevice.install(monkeypatch, samplerate=44_100)
+    async with Client(mcp) as client:
+        r = await client.call_tool("record_audio", {"seconds": 1.5, "name": "take1"})
+        recording = json.loads(r.content[0].text)
+        r2 = await client.call_tool("analyze_pitch", {"audio": "take1"})
+    assert recording["audio"].endswith("take1.wav")
+    data = json.loads(r2.content[0].text)
+    assert data["notes"][0]["note"] == "A4"
+    assert abs(data["notes"][0]["cents"]) <= 2
 
 
-async def test_prompt_canto():
-    async with Client(mcp) as cliente:
-        r = await cliente.get_prompt(
-            "sesion_canto", {"nivel": "principiante", "referencia_midi": "x.mid"}
+async def test_singing_prompt():
+    async with Client(mcp) as client:
+        r = await client.get_prompt(
+            "singing_session", {"level": "beginner", "reference_midi": "x.mid"}
         )
-    texto = r.messages[0].content.text
-    assert "principiante" in texto and "x.mid" in texto and "analizar_afinacion" in texto
+    text = r.messages[0].content.text
+    assert "beginner" in text and "x.mid" in text and "analyze_pitch" in text
 
 
-async def test_metricas_discurso_con_transcripcion_simulada(config, tmp_path, monkeypatch):
-    frases = [
-        ft.regular("Bueno, eh, hoy hablamos de voz."),
-        ft.regular("O sea, practicar sirve.", inicio=3.5),
+async def test_speech_metrics_with_fake_transcript(config, tmp_path, monkeypatch):
+    sentences = [
+        ft.regular("So, uh, today we talk about voice."),
+        ft.regular("I mean, practice helps.", start=3.5),
     ]
     monkeypatch.setattr(
-        "voice_coach_mcp.habla.discurso.transcribir", lambda *a, **k: ft.armar(frases)
+        "voice_coach_mcp.speech.analysis.transcribe", lambda *a, **k: ft.build(sentences)
     )
-    y = s.secuencia([(48, 2.5), (50, 1.6)], pausa=1.0)
-    ruta = s.guardar(tmp_path / "habla.wav", y)
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("metricas_discurso", {"audio": str(ruta), "idioma": "es-CL"})
-    datos = json.loads(r.content[0].text)
-    assert datos["idioma"] == "es"
-    assert datos["muletillas"]["por_tipo"] == {"bueno": 1, "eh": 1, "o sea": 1}
-    assert datos["pausas"]["cantidad"] == 1
-    assert datos["segmentos"][1]["texto"].startswith("O sea")
+    path = s.save(tmp_path / "speech.wav", s.sequence([(48, 2.5), (50, 1.6)], gap=1.0))
+    async with Client(mcp) as client:
+        r = await client.call_tool("speech_metrics", {"audio": str(path), "language": "en-US"})
+    data = json.loads(r.content[0].text)
+    assert data["language"] == "en"
+    assert data["fillers"]["by_type"] == {"so": 1, "uh": 1, "i mean": 1}
+    assert data["pauses"]["count"] == 1
+    assert data["segments"][1]["text"].startswith("I mean")
 
 
-async def test_transcribir_sin_habla(config, tmp_path):
-    ruta = s.guardar(tmp_path / "mudo.wav", s.silencio(2.0))
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("transcribir", {"audio": str(ruta)})
-    datos = json.loads(r.content[0].text)
-    assert datos["confianza"]["valor"] == 0
-    assert "silencio_digital" in {a["codigo"] for a in datos["advertencias"]}
+async def test_transcribe_silence(config, tmp_path):
+    path = s.save(tmp_path / "mute.wav", s.silence(2.0))
+    async with Client(mcp) as client:
+        r = await client.call_tool("transcribe", {"audio": str(path)})
+    data = json.loads(r.content[0].text)
+    assert data["confidence"]["value"] == 0
+    assert "digital_silence" in {w["code"] for w in data["warnings"]}
 
 
-async def test_falta_extra_habla_da_instruccion(config, tmp_path, monkeypatch):
-    import sys
+async def test_missing_speech_extra_explains_how_to_install(config, tmp_path, monkeypatch):
+    from voice_coach_mcp.speech import transcription
 
-    from voice_coach_mcp.habla import transcripcion
-
-    monkeypatch.setitem(sys.modules, "faster_whisper", None)  # simula que no está instalado
-    monkeypatch.setattr(transcripcion, "_modelos", {})
-    ruta = s.guardar(tmp_path / "a.wav", s.secuencia([(60, 1.0)]))
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool("transcribir", {"audio": str(ruta)})
-    assert r.is_error and "uv sync --extra habla" in r.content[0].text
+    monkeypatch.setitem(sys.modules, "faster_whisper", None)  # simulates it is not installed
+    monkeypatch.setattr(transcription, "_models", {})
+    path = s.save(tmp_path / "a.wav", s.sequence([(60, 1.0)]))
+    async with Client(mcp) as client:
+        r = await client.call_tool("transcribe", {"audio": str(path)})
+    assert r.is_error and "uv sync --extra speech" in r.content[0].text
 
 
-class _BackendFalso:
-    """Simula lo que detectaría el modelo: "very" con b y "things" con s."""
+class _FakeBackend:
+    """Simulates what the model would detect: "very" with b and "things" with s."""
 
-    nombre = "falso"
+    name = "fake"
 
-    def evaluar(self, y, texto, idioma, config):
-        from voice_coach_mcp.pronunciacion import alineacion
-        from voice_coach_mcp.pronunciacion.base import ResultadoPronunciacion
+    def assess(self, y, text, language, config):
+        from voice_coach_mcp.pronunciation import alignment
+        from voice_coach_mcp.pronunciation.base import PronunciationResult
 
-        palabras = ["The", "very", "best", "things"]
-        esperados = [["ð", "ə"], ["v", "ɛ", "ɹ", "i"], ["b", "ɛ", "s", "t"], ["θ", "ɪ", "ŋ", "z"]]
-        detectados = ["ð", "ə", "b", "ɛ", "ɹ", "i", "b", "ɛ", "s", "t", "s", "ɪ", "ŋ", "z"]
-        plano = [f for fs in esperados for f in fs]
-        ops = alineacion.alinear(plano, detectados)
-        r = alineacion.por_palabra(
-            palabras, esperados, ops, [i * 0.1 for i in range(len(detectados))]
-        )
-        return ResultadoPronunciacion(
-            "falso", r, alineacion.puntaje_global(r), 0.9, 2 / 14, plano, detectados
+        words = ["The", "very", "best", "things"]
+        expected = [["ð", "ə"], ["v", "ɛ", "ɹ", "i"], ["b", "ɛ", "s", "t"], ["θ", "ɪ", "ŋ", "z"]]
+        detected = ["ð", "ə", "b", "ɛ", "ɹ", "i", "b", "ɛ", "s", "t", "s", "ɪ", "ŋ", "z"]
+        flat = [p for ps in expected for p in ps]
+        ops = alignment.align(flat, detected)
+        r = alignment.by_word(words, expected, ops, [i * 0.1 for i in range(len(detected))])
+        return PronunciationResult(
+            "fake", r, alignment.overall_score(r), 0.9, 2 / 14, flat, detected
         )
 
 
-async def test_evaluar_pronunciacion_con_backend_simulado(config, tmp_path, monkeypatch):
+async def test_assess_pronunciation_with_fake_backend(config, tmp_path, monkeypatch):
     monkeypatch.setattr(
-        "voice_coach_mcp.pronunciacion.evaluacion.backend", lambda c: _BackendFalso()
+        "voice_coach_mcp.pronunciation.assessment.backend", lambda c: _FakeBackend()
     )
-    ruta = s.guardar(tmp_path / "frase.wav", s.secuencia([(55, 1.5)]))
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool(
-            "evaluar_pronunciacion", {"audio": str(ruta), "texto_esperado": "The very best things"}
+    path = s.save(tmp_path / "sentence.wav", s.sequence([(55, 1.5)]))
+    async with Client(mcp) as client:
+        r = await client.call_tool(
+            "assess_pronunciation", {"audio": str(path), "expected_text": "The very best things"}
         )
-    datos = json.loads(r.content[0].text)
-    res = datos["resumen"]
-    assert res["puntaje_global"] == round(100 * (1 - 2 / 14))
-    assert res["palabras_con_errores"] == 2
-    assert res["errores"] == {"sustitucion": 2, "omision": 0, "insercion": 0}
-    assert {"esperado": "θ", "detectado": "s", "veces": 1} in res["confusiones_frecuentes"]
-    very = datos["palabras"][1]
-    assert very == {
-        "palabra": "very",
-        "puntaje": 75,
+    data = json.loads(r.content[0].text)
+    summary = data["summary"]
+    assert summary["overall_score"] == round(100 * (1 - 2 / 14))
+    assert summary["words_with_errors"] == 2
+    assert summary["errors"] == {"substitution": 2, "deletion": 0, "insertion": 0}
+    assert {"expected": "θ", "detected": "s", "count": 1} in summary["frequent_confusions"]
+    assert data["words"][1] == {
+        "word": "very",
+        "score": 75,
         "t": 0.2,
-        "esperado": "v ɛ ɹ i",
-        "detectado": "b ɛ ɹ i",
-        "errores": [{"tipo": "sustitucion", "esperado": "v", "detectado": "b"}],
+        "expected": "v ɛ ɹ i",
+        "detected": "b ɛ ɹ i",
+        "errors": [{"type": "substitution", "expected": "v", "detected": "b"}],
     }
-    assert datos["palabras"][0] == {"palabra": "The", "puntaje": 100, "t": 0.0}
+    assert data["words"][0] == {"word": "The", "score": 100, "t": 0.0}
 
 
-async def test_backend_desconocido(config, tmp_path, monkeypatch):
-    monkeypatch.setenv("VOICE_COACH_PRONUNCIACION_BACKEND", "otro")
-    ruta = s.guardar(tmp_path / "frase.wav", s.secuencia([(55, 1.0)]))
-    async with Client(mcp) as cliente:
-        r = await cliente.call_tool(
-            "evaluar_pronunciacion", {"audio": str(ruta), "texto_esperado": "hi"}
+async def test_unknown_backend(config, tmp_path, monkeypatch):
+    monkeypatch.setenv("VOICE_COACH_PRONUNCIATION_BACKEND", "other")
+    path = s.save(tmp_path / "sentence.wav", s.sequence([(55, 1.0)]))
+    async with Client(mcp) as client:
+        r = await client.call_tool(
+            "assess_pronunciation", {"audio": str(path), "expected_text": "hi"}
         )
     assert r.is_error and "local" in r.content[0].text
+
+
+async def test_progress_tools(config):
+    async with Client(mcp) as client:
+        await client.call_tool(
+            "log_progress", {"entry": "## 2026-10-23 · Speaking\n\n- 3 fillers/min"}
+        )
+        r = await client.call_tool("read_progress", {})
+    data = json.loads(r.content[0].text)
+    assert data["total_entries"] == 1 and "fillers" in data["entries"][0]

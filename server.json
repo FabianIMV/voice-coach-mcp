@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.FabianIMV/voice-coach-mcp",
+  "title": "Voice Coach",
+  "description": "Gives Claude ears: local pitch, pronunciation and public-speaking analysis for voice coaching.",
+  "repository": {
+    "url": "https://github.com/FabianIMV/voice-coach-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "voice-coach-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "VOICE_COACH_DIR",
+          "description": "Folder for recordings, analysis details and progress.md (default ~/VoiceCoach).",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "VOICE_COACH_WHISPER_MODEL",
+          "description": "Whisper model for transcription and speech metrics (default small).",
+          "isRequired": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

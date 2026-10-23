@@ -1,0 +1,94 @@
+{
+  "call": {
+    "tool": "analyze_pitch",
+    "arguments": {
+      "audio": "examples/audio/c_major_scale.wav",
+      "key": "G major"
+    }
+  },
+  "response": {
+    "audio": "examples/audio/c_major_scale.wav",
+    "duration_s": 7.36,
+    "mode": "key",
+    "key": "G major",
+    "summary": {
+      "notes": 8,
+      "range": "C4–C5",
+      "pct_within_25_cents": 62.5,
+      "mean_deviation_cents": -18.5,
+      "mean_abs_deviation_cents": 23.3,
+      "tendency": "flat",
+      "drift_cents": 24.0,
+      "stability": {
+        "stable": 7,
+        "vibrato": 1,
+        "unstable": 0
+      }
+    },
+    "notes": [
+      {
+        "t": 0.4,
+        "dur": 0.62,
+        "note": "C4",
+        "cents": 0,
+        "stability": "stable"
+      },
+      {
+        "t": 1.12,
+        "dur": 0.62,
+        "note": "D4",
+        "cents": -8,
+        "stability": "stable"
+      },
+      {
+        "t": 1.84,
+        "dur": 0.62,
+        "note": "E4",
+        "cents": -30,
+        "stability": "stable"
+      },
+      {
+        "t": 2.56,
+        "dur": 0.62,
+        "note": "F#4",
+        "cents": -95,
+        "stability": "stable"
+      },
+      {
+        "t": 3.28,
+        "dur": 0.62,
+        "note": "G4",
+        "cents": 22,
+        "stability": "stable"
+      },
+      {
+        "t": 4.0,
+        "dur": 0.62,
+        "note": "A4",
+        "cents": -15,
+        "stability": "stable"
+      },
+      {
+        "t": 4.72,
+        "dur": 0.62,
+        "note": "B4",
+        "cents": -42,
+        "stability": "stable"
+      },
+      {
+        "t": 5.44,
+        "dur": 1.43,
+        "note": "C5",
+        "cents": -2,
+        "stability": "vibrato",
+        "vibrato_hz": 5.5,
+        "vibrato_pp_cents": 84
+      }
+    ],
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

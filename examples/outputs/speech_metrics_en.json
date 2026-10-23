@@ -1,0 +1,122 @@
+{
+  "call": {
+    "tool": "speech_metrics",
+    "arguments": {
+      "audio": "examples/audio/speech_en.wav",
+      "language": "en"
+    }
+  },
+  "response": {
+    "audio": "examples/audio/speech_en.wav",
+    "duration_s": 15.79,
+    "language": "en",
+    "pace": {
+      "words": 36,
+      "speaking_time_s": 14.9,
+      "words_per_minute": 145,
+      "wpm_excluding_long_pauses": 165
+    },
+    "pauses": {
+      "threshold_s": 0.7,
+      "count": 2,
+      "total_s": 1.9,
+      "max_s": 1.03,
+      "per_minute": 8.1,
+      "items": [
+        {
+          "t": 4.42,
+          "dur": 1.03,
+          "after": "speaking"
+        },
+        {
+          "t": 12.1,
+          "dur": 0.83,
+          "after": "normal"
+        }
+      ]
+    },
+    "fillers": {
+      "total": 6,
+      "per_minute": 24.2,
+      "by_type": {
+        "um": 1,
+        "so": 1,
+        "uh": 1,
+        "you know": 1,
+        "like": 1,
+        "i mean": 1
+      },
+      "occurrences": [
+        {
+          "t": 0.0,
+          "text": "umm"
+        },
+        {
+          "t": 0.86,
+          "text": "so"
+        },
+        {
+          "t": 3.0,
+          "text": "uh"
+        },
+        {
+          "t": 5.32,
+          "text": "you know"
+        },
+        {
+          "t": 7.92,
+          "text": "like"
+        },
+        {
+          "t": 10.02,
+          "text": "i mean"
+        }
+      ]
+    },
+    "pitch": {
+      "median_f0_hz": 101,
+      "std_semitones": 1.53,
+      "range_p10_p90_semitones": 3.8,
+      "monotone": true,
+      "monotone_stretches": [
+        {
+          "t": 0.0,
+          "end": 12.0
+        }
+      ]
+    },
+    "volume": {
+      "mean_dbfs": -21.2,
+      "std_between_words_db": 2.4,
+      "range_p10_p90_db": 6.6,
+      "low_variation": true
+    },
+    "segments": [
+      {
+        "t": 0.0,
+        "end": 4.26,
+        "text": "Umm, so today I want to talk about, uh, public speaking."
+      },
+      {
+        "t": 5.32,
+        "end": 9.58,
+        "text": "You know, most people feel nervous, like, before a big talk."
+      },
+      {
+        "t": 10.02,
+        "end": 11.96,
+        "text": "I mean, that is completely normal."
+      },
+      {
+        "t": 12.88,
+        "end": 14.92,
+        "text": "The key is to practice with real feedback."
+      }
+    ],
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

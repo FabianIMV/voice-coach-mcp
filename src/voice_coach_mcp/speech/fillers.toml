@@ -1,0 +1,18 @@
+# Filler words per language. Copy this file, edit it and point VOICE_COACH_FILLERS to your copy;
+# the sections you define replace the ones in this file.
+#
+# - vocalizations: regular expressions for filler sounds (always counted).
+# - phrases: words or phrases that always count as fillers.
+# - ambiguous: words that also have a normal use ("I like it", "este libro"); they only count
+#   when isolated: at the start of a sentence, next to a comma, or followed/preceded by a pause
+#   of 0.3 s or more.
+
+[en]
+vocalizations = ["u+h+m*", "u+m+", "e+r+m*", "e+h*m+", "h+m+", "m+", "a+h+"]
+phrases = ["you know", "i mean", "sort of", "kind of", "you see", "or something"]
+ambiguous = ["like", "so", "well", "basically", "actually", "literally", "right", "okay", "ok", "anyway"]
+
+[es]
+vocalizations = ["e+h*m*", "e+m+", "m+", "mh+m*", "a+h+", "a+m+", "u+m+", "h?m+"]
+phrases = ["o sea", "¿no?", "digamos", "es decir", "a ver", "cachai", "¿cachai?", "¿sabes?", "¿me explico?"]
+ambiguous = ["este", "esto", "bueno", "pues", "tipo", "entonces", "nada", "como", "vale", "igual", "onda", "básicamente"]

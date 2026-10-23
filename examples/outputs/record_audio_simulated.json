@@ -1,0 +1,27 @@
+{
+  "note": "Simulated input device (the environment that generated this has no microphone).",
+  "call": {
+    "tool": "record_audio",
+    "arguments": {
+      "seconds": 3,
+      "name": "take"
+    }
+  },
+  "response": {
+    "audio": "~/VoiceCoach/recordings/take.wav",
+    "duration_s": 3.0,
+    "sample_rate": 16000,
+    "device": "Fake microphone",
+    "levels": {
+      "peak_dbfs": -10.5,
+      "rms_dbfs": -14.3,
+      "snr_db": 60.0,
+      "clipping_pct": 0.0
+    },
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

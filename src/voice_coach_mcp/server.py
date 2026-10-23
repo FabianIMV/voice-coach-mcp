@@ -1,4 +1,4 @@
-"""Servidor MCP (stdio): registro de tools y prompts. La lógica vive en los subpaquetes."""
+"""MCP server (stdio): tool and prompt registration. The logic lives in the subpackages."""
 
 import functools
 import logging
@@ -7,212 +7,255 @@ import time
 import anyio
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
-from . import __version__, progreso, prompts
-from .audio.grabacion import grabar
-from .canto.afinacion import analizar
-from .config import cargar_config
-from .errores import ErrorUsuario
-from .habla.discurso import analizar_discurso, analizar_transcripcion
-from .pronunciacion.evaluacion import evaluar
-from .salida import a_json
+from . import __version__, progress, prompts
+from .audio.recording import record
+from .config import load_config
+from .errors import UserError
+from .output import to_json
+from .pronunciation.assessment import assess
+from .singing.intonation import analyze
+from .speech.analysis import speech_metrics as run_speech_metrics
+from .speech.analysis import transcribe_audio
 
 log = logging.getLogger("voice_coach_mcp")
 
-INSTRUCCIONES = """Este servidor mide audio para que actúes como coach de voz (canto, pronunciación en
-inglés y oratoria). Las tools devuelven mediciones en JSON compacto con `confianza` y `advertencias`;
-la interpretación y el feedback los das tú. Si una respuesta trae `detalle_completo`, ahí hay un
-JSON con todo el detalle. Los audios se pueden pasar por ruta o por el nombre devuelto por grabar_audio."""
+INSTRUCTIONS = """This server measures audio so you can act as a voice coach (singing, English
+pronunciation and public speaking). Tools return compact JSON measurements with `confidence` and
+`warnings`; the interpretation and feedback are yours. When a response includes `full_details`,
+that JSON file holds every detail. Audio can be passed as a path or as the name returned by
+record_audio. Reply in the user's language."""
 
-mcp = MCPServer("voice-coach", instructions=INSTRUCCIONES, version=__version__)
+mcp = MCPServer("voice-coach", instructions=INSTRUCTIONS, version=__version__)
+
+# Analysis tools only write a details JSON next to the audio; none of them touch the network
+# (except assess_pronunciation when the user configures the Azure backend).
+_ANALYSIS = ToolAnnotations(
+    read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+)
 
 
-def _errores_legibles(fn):
-    """Convierte ErrorUsuario en ToolError para que el mensaje llegue tal cual a Claude."""
+def _readable_errors(fn):
+    """Turns UserError into ToolError so the message reaches Claude verbatim."""
 
     @functools.wraps(fn)
-    async def envoltura(*args, **kwargs):
+    async def wrapper(*args, **kwargs):
         try:
             return await fn(*args, **kwargs)
-        except ErrorUsuario as e:
+        except UserError as e:
             raise ToolError(str(e)) from e
 
-    return envoltura
+    return wrapper
 
 
-@mcp.tool()
-@_errores_legibles
-async def grabar_audio(segundos: float, ctx: Context, nombre: str | None = None) -> str:
-    """Graba del micrófono del equipo y guarda un .wav 16 kHz mono.
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Record audio",
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    )
+)
+@_readable_errors
+async def record_audio(seconds: float, ctx: Context, name: str | None = None) -> str:
+    """Records from the computer's microphone and saves a 16 kHz mono .wav.
 
     Args:
-        segundos: duración de la grabación (máx. 120 por defecto). Avisa al usuario antes de llamar.
-        nombre: nombre opcional del archivo (sin extensión); por defecto, fecha y hora.
+        seconds: recording length (max 120 by default). Tell the user before calling.
+        name: optional file name (without extension); defaults to date and time.
 
-    Devuelve `audio` (ruta del .wav), niveles (pico/RMS en dBFS, SNR estimado, % de clipping),
-    `confianza` y `advertencias`. La advertencia `sin_permiso_microfono` indica que macOS no
-    entregó audio: el usuario debe habilitar el micrófono para la app en Ajustes del Sistema.
+    Returns `audio` (path of the .wav), levels (peak/RMS in dBFS, estimated SNR, % clipping),
+    `confidence` and `warnings`. The `no_microphone_permission` warning means macOS delivered no
+    audio: the user must enable the microphone for the app in System Settings.
     """
-    config = cargar_config()
-    resultado: dict = {}
+    config = load_config()
+    result: dict = {}
 
-    async def grabar_en_hilo():
-        resultado.update(await anyio.to_thread.run_sync(grabar, segundos, nombre, config))
+    async def record_in_thread():
+        result.update(await anyio.to_thread.run_sync(record, seconds, name, config))
 
-    inicio = time.monotonic()
+    start = time.monotonic()
     async with anyio.create_task_group() as tg:
-        tg.start_soon(grabar_en_hilo)
-        while not resultado:
-            transcurrido = min(time.monotonic() - inicio, segundos)
+        tg.start_soon(record_in_thread)
+        while not result:
+            elapsed = min(time.monotonic() - start, seconds)
             try:
-                await ctx.report_progress(transcurrido, segundos, "grabando")
-            except Exception:  # el cliente puede no pedir progreso
-                log.debug("no se pudo reportar progreso", exc_info=True)
+                await ctx.report_progress(elapsed, seconds, "recording")
+            except Exception:  # the client may not ask for progress
+                log.debug("could not report progress", exc_info=True)
             await anyio.sleep(1.0)
-    return a_json(resultado)
+    return to_json(result)
 
 
-@mcp.tool()
-@_errores_legibles
-async def analizar_afinacion(
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Analyze pitch accuracy", **_ANALYSIS.model_dump(exclude={"title"})
+    )
+)
+@_readable_errors
+async def analyze_pitch(
     audio: str,
-    referencia_midi: str | None = None,
-    tonalidad: str | None = None,
-    pista_midi: int | None = None,
+    reference_midi: str | None = None,
+    key: str | None = None,
+    midi_track: int | None = None,
 ) -> str:
-    """Mide la afinación de un audio cantado (voz sola, una línea melódica).
+    """Measures the pitch accuracy of sung audio (solo voice, one melodic line).
 
     Args:
-        audio: ruta del audio (wav/flac/mp3/m4a) o nombre devuelto por grabar_audio.
-        referencia_midi: ruta opcional a un .mid con la melodía esperada. Tolera que se cante una
-            octava arriba/abajo, que se empiece en otro momento y un tempo algo distinto.
-        tonalidad: opcional sin MIDI, p. ej. "A minor", "La menor", "Sol mayor": cada nota se compara
-            con la nota más cercana de esa escala. Sin ella, con la nota temperada más cercana.
-        pista_midi: índice de la pista del MIDI a usar (por defecto la no percusiva con más notas).
+        audio: audio path (wav/flac/mp3/m4a) or a name returned by record_audio.
+        reference_midi: optional path to a .mid with the expected melody. Tolerates singing an
+            octave up/down, starting at another moment and a somewhat different tempo.
+        key: optional when there is no MIDI, e.g. "A minor", "G major", "F#" (Spanish names such as
+            "La menor" also work): each note is compared with the nearest note of that scale.
+            Without it, with the nearest equal-tempered note.
+        midi_track: index of the MIDI track to use (default: the non-drum track with most notes).
 
-    Devuelve `resumen` (notas, rango, porcentaje_dentro_25_cents, desviacion_media_cents con signo,
-    tendencia plano/sostenido/centrado, deriva_cents entre la 1.ª y la 2.ª mitad, conteo de
-    estabilidad; con MIDI además omitidas, notas_extra, notas_incorrectas, entradas
-    a_tiempo/tarde/temprano, transposicion_octavas, desfase_inicio_ms y tempo_relativo >1 = más lento)
-    y `notas`: t (s), dur, nota o esperada/cantada, cents (+ = sostenido), estabilidad
-    (estable | vibrato con vibrato_hz y vibrato_pp_cents | inestable con desv_cents),
-    deriva_cents dentro de la nota y, con MIDI, entrada_ms/entrada; las notas de la referencia
-    sin cantar llevan estado=omitida y las cantadas sin pareja estado=extra. Si la lista no cabe se muestran
-    las notas más problemáticas y el resto queda en `detalle_completo`.
+    Returns `summary` (notes, range, pct_within_25_cents, signed mean_deviation_cents,
+    tendency flat/sharp/centered, drift_cents between 1st and 2nd half, stability counts; with
+    MIDI also missed, extra_notes, wrong_notes, onsets on_time/late/early, octave_shift,
+    start_offset_ms and relative_tempo >1 = slower) and `notes`: t (s), dur, note or
+    expected/sung, cents (+ = sharp), stability (stable | vibrato with vibrato_hz and
+    vibrato_pp_cents | unstable with std_cents), drift_cents within the note and, with MIDI,
+    onset_ms/onset; reference notes not sung have status=missed and unmatched sung notes
+    status=extra. If the list does not fit, the most problematic notes are shown and the rest
+    is in `full_details`.
     """
-    config = cargar_config()
+    config = load_config()
     return await anyio.to_thread.run_sync(
         functools.partial(
-            analizar,
-            audio,
-            config,
-            referencia_midi=referencia_midi,
-            tonalidad=tonalidad,
-            pista_midi=pista_midi,
+            analyze, audio, config, reference_midi=reference_midi, key=key, midi_track=midi_track
         )
     )
 
 
-@mcp.tool()
-@_errores_legibles
-async def transcribir(audio: str, idioma: str | None = None) -> str:
-    """Transcribe un audio con timestamps (faster-whisper, local).
+@mcp.tool(
+    annotations=ToolAnnotations(title="Transcribe audio", **_ANALYSIS.model_dump(exclude={"title"}))
+)
+@_readable_errors
+async def transcribe(audio: str, language: str | None = None) -> str:
+    """Transcribes audio with timestamps (faster-whisper, local).
 
     Args:
-        audio: ruta del audio o nombre devuelto por grabar_audio.
-        idioma: "es", "en", "en-US", "español"…; si se omite, se detecta.
+        audio: audio path or a name returned by record_audio.
+        language: "en", "es", "en-US", "Spanish"…; auto-detected when omitted.
 
-    Devuelve `idioma`, `prob_idioma`, `texto`, `segmentos` [{t, fin, texto}] y `palabras`
-    [{p, t, fin}]. Si no cabe, primero se omiten palabras y luego segmentos (todo queda en
-    `detalle_completo`). La primera llamada descarga el modelo (VOICE_COACH_WHISPER_MODEL).
+    Returns `language`, `language_prob`, `text`, `segments` [{t, end, text}] and `words`
+    [{w, t, end}]. If it does not fit, words are dropped first and then segments (everything
+    stays in `full_details`). The first call downloads the model (VOICE_COACH_WHISPER_MODEL).
     """
-    config = cargar_config()
-    return await anyio.to_thread.run_sync(analizar_transcripcion, audio, config, idioma)
+    config = load_config()
+    return await anyio.to_thread.run_sync(transcribe_audio, audio, config, language)
 
 
-@mcp.tool()
-@_errores_legibles
-async def metricas_discurso(audio: str, idioma: str, umbral_pausa_s: float = 0.7) -> str:
-    """Mide ritmo, pausas, muletillas y variación de tono y volumen de un discurso.
+@mcp.tool(
+    annotations=ToolAnnotations(title="Speech metrics", **_ANALYSIS.model_dump(exclude={"title"}))
+)
+@_readable_errors
+async def speech_metrics(audio: str, language: str, pause_threshold_s: float = 0.7) -> str:
+    """Measures pace, pauses, filler words and pitch/volume variation of a speech.
 
     Args:
-        audio: ruta del audio o nombre devuelto por grabar_audio.
-        idioma: idioma del discurso ("es" o "en"; las listas de muletillas existen para ambos).
-        umbral_pausa_s: silencio mínimo entre palabras para contar una pausa larga.
+        audio: audio path or a name returned by record_audio.
+        language: language of the speech ("en" or "es"; filler lists exist for both).
+        pause_threshold_s: minimum silence between words to count as a long pause.
 
-    Devuelve:
-    - `ritmo`: palabras, tiempo_habla_s, palabras_por_minuto, ppm_sin_pausas_largas.
-    - `pausas`: cantidad, total_s, max_s, por_minuto y lista [{t, dur, tras: palabra previa}].
-    - `muletillas`: total, por_minuto, por_tipo y ocurrencias [{t, texto}]. Las palabras
-      ambiguas ("este", "like") solo cuentan aisladas por coma o pausa.
-    - `tono`: f0_mediana_hz, desv_semitonos, rango_p10_p90_semitonos, monotono (desv < 2 st) y
-      tramos_monotonos [{t, fin}] en ventanas de 8 s.
-    - `volumen`: media_dbfs, desv_entre_palabras_db, rango_p10_p90_db, variacion_baja (desv < 3 dB).
-    - `segmentos` de la transcripción [{t, fin, texto}].
+    Returns:
+    - `pace`: words, speaking_time_s, words_per_minute, wpm_excluding_long_pauses.
+    - `pauses`: count, total_s, max_s, per_minute and items [{t, dur, after: previous word}].
+    - `fillers`: total, per_minute, by_type and occurrences [{t, text}]. Ambiguous words
+      ("like", "so") only count when isolated by a comma or a pause.
+    - `pitch`: median_f0_hz, std_semitones, range_p10_p90_semitones, monotone (std < 2 st) and
+      monotone_stretches [{t, end}] over 8 s windows.
+    - `volume`: mean_dbfs, std_between_words_db, range_p10_p90_db, low_variation (std < 3 dB).
+    - `segments` of the transcript [{t, end, text}].
     """
-    config = cargar_config()
-    return await anyio.to_thread.run_sync(analizar_discurso, audio, config, idioma, umbral_pausa_s)
+    config = load_config()
+    return await anyio.to_thread.run_sync(
+        run_speech_metrics, audio, config, language, pause_threshold_s
+    )
 
 
-@mcp.tool()
-@_errores_legibles
-async def evaluar_pronunciacion(audio: str, texto_esperado: str, idioma: str = "en-US") -> str:
-    """Compara los fonemas pronunciados con los esperados para un texto leído en voz alta (inglés).
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Assess pronunciation", **_ANALYSIS.model_dump(exclude={"title"})
+    )
+)
+@_readable_errors
+async def assess_pronunciation(audio: str, expected_text: str, language: str = "en-US") -> str:
+    """Compares the pronounced phonemes with the expected ones for a text read aloud (English).
 
     Args:
-        audio: ruta del audio o nombre devuelto por grabar_audio (hasta 60 s; mejor frases cortas).
-        texto_esperado: el texto exacto que se leyó.
-        idioma: "en-US" (por defecto) o "en-GB".
+        audio: audio path or a name returned by record_audio (up to 60 s; short sentences work best).
+        expected_text: the exact text that was read.
+        language: "en-US" (default) or "en-GB".
 
-    Devuelve `resumen` (puntaje_global 0–100, palabras_con_errores, conteo de errores por tipo,
-    confusiones_frecuentes esperado→detectado) y `palabras`: palabra, puntaje, t (s) y, si hay
-    errores, esperado/detectado en IPA y errores [{tipo: sustitucion|omision|insercion,
-    esperado, detectado}]; `omitida` si no se dijo. `fonemas` trae ambas secuencias completas.
-    Puntaje por palabra = 100·(1 − (S + O + 0,5·I)/fonemas esperados). Variantes alofónicas
-    (flap, schwa, r de enlace) no cuentan como error. La advertencia texto_no_coincide indica que
-    probablemente se leyó otro texto. Backend: wav2vec2 local, o Azure si
-    VOICE_COACH_PRONUNCIACION_BACKEND=azure (entonces el audio se envía a Azure).
+    Returns `summary` (overall_score 0–100, words_with_errors, error counts by type,
+    frequent_confusions expected→detected) and `words`: word, score, t (s) and, when there are
+    errors, expected/detected in IPA and errors [{type: substitution|deletion|insertion,
+    expected, detected}]; `missing` when the word was not said. `phonemes` holds both full
+    sequences. Word score = 100·(1 − (S + D + 0.5·I)/expected phonemes). Allophonic variants
+    (flap, schwa, linking r) do not count as errors. The text_mismatch warning means a
+    different text was probably read. Backend: local wav2vec2, or Azure when
+    VOICE_COACH_PRONUNCIATION_BACKEND=azure (then the audio is sent to Azure).
     """
-    config = cargar_config()
-    return await anyio.to_thread.run_sync(evaluar, audio, texto_esperado, config, idioma)
+    config = load_config()
+    return await anyio.to_thread.run_sync(assess, audio, expected_text, config, language)
 
 
-@mcp.tool()
-@_errores_legibles
-async def leer_progreso(entradas: int = 5) -> str:
-    """Lee las últimas sesiones del registro de progreso (~/VoiceCoach/progreso.md).
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Read progress log",
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
+    )
+)
+@_readable_errors
+async def read_progress(entries: int = 5) -> str:
+    """Reads the latest sessions from the progress log (~/VoiceCoach/progress.md).
 
-    Úsala al empezar una sesión para retomar el foco anterior. Devuelve `archivo`,
-    `entradas_totales` y `entradas` (markdown de cada sesión, de la más antigua a la más reciente).
+    Use it at the start of a session to pick up the previous focus. Returns `file`,
+    `total_entries` and `entries` (markdown of each session, oldest to newest).
     """
-    return a_json(progreso.leer(cargar_config(), entradas))
+    return to_json(progress.read(load_config(), entries))
 
 
-@mcp.tool()
-@_errores_legibles
-async def registrar_progreso(entrada: str) -> str:
-    """Agrega una sesión al registro de progreso (~/VoiceCoach/progreso.md).
+@mcp.tool(
+    annotations=ToolAnnotations(
+        title="Log progress",
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+        open_world_hint=False,
+    )
+)
+@_readable_errors
+async def log_progress(entry: str) -> str:
+    """Appends a session to the progress log (~/VoiceCoach/progress.md).
 
     Args:
-        entrada: markdown de la sesión. Conviene que empiece con "## AAAA-MM-DD · modalidad ·
-            ejercicio"; si no empieza con "## ", se le agrega la fecha y hora como título.
+        entry: markdown of the session. It should start with "## YYYY-MM-DD · mode · exercise";
+            if it does not start with "## ", the date and time are added as the title.
     """
-    return a_json(progreso.registrar(cargar_config(), entrada))
+    return to_json(progress.log(load_config(), entry))
 
 
 @mcp.prompt()
-def sesion_canto(nivel: str = "intermedio", objetivo: str = "", referencia_midi: str = "") -> str:
-    """Guía una sesión de canto: calentamiento, ejercicio, análisis de afinación, feedback y siguiente paso."""
-    return prompts.sesion_canto(nivel, objetivo, referencia_midi)
+def singing_session(level: str = "intermediate", goal: str = "", reference_midi: str = "") -> str:
+    """Guides a singing session: warm-up, exercise, pitch analysis, feedback and next step."""
+    return prompts.singing_session(level, goal, reference_midi)
 
 
 @mcp.prompt()
-def sesion_pronunciacion(nivel: str = "intermedio", foco: str = "") -> str:
-    """Guía una sesión de pronunciación en inglés con pares mínimos y frases objetivo."""
-    return prompts.sesion_pronunciacion(nivel, foco)
+def pronunciation_session(level: str = "intermediate", focus: str = "") -> str:
+    """Guides an English pronunciation session with minimal pairs and target sentences."""
+    return prompts.pronunciation_session(level, focus)
 
 
 @mcp.prompt()
-def sesion_oratoria(contexto: str = "", duracion_objetivo_s: int = 60) -> str:
-    """Guía una sesión de oratoria: ritmo, pausas, muletillas y variación de tono y volumen."""
-    return prompts.sesion_oratoria(contexto, duracion_objetivo_s)
+def speaking_session(context: str = "", target_duration_s: int = 60) -> str:
+    """Guides a public-speaking session: pace, pauses, filler words and pitch/volume variation."""
+    return prompts.speaking_session(context, target_duration_s)

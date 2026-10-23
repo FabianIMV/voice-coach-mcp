@@ -1,0 +1,127 @@
+{
+  "call": {
+    "tool": "speech_metrics",
+    "arguments": {
+      "audio": "examples/audio/speech_es.wav",
+      "language": "es"
+    }
+  },
+  "response": {
+    "audio": "examples/audio/speech_es.wav",
+    "duration_s": 22.98,
+    "language": "es",
+    "pace": {
+      "words": 43,
+      "speaking_time_s": 22.3,
+      "words_per_minute": 116,
+      "wpm_excluding_long_pauses": 127
+    },
+    "pauses": {
+      "threshold_s": 0.7,
+      "count": 2,
+      "total_s": 2.0,
+      "max_s": 1.16,
+      "per_minute": 5.4,
+      "items": [
+        {
+          "t": 3.9,
+          "dur": 1.16,
+          "after": "importante"
+        },
+        {
+          "t": 15.56,
+          "dur": 0.87,
+          "after": "nerviosos"
+        }
+      ]
+    },
+    "fillers": {
+      "total": 7,
+      "per_minute": 18.8,
+      "by_type": {
+        "bueno": 1,
+        "eh": 1,
+        "o sea": 1,
+        "este": 1,
+        "mmm": 1,
+        "entonces": 1,
+        "no?": 1
+      },
+      "occurrences": [
+        {
+          "t": 0.0,
+          "text": "bueno"
+        },
+        {
+          "t": 1.06,
+          "text": "eh"
+        },
+        {
+          "t": 4.56,
+          "text": "o sea"
+        },
+        {
+          "t": 9.64,
+          "text": "este"
+        },
+        {
+          "t": 12.3,
+          "text": "mmm"
+        },
+        {
+          "t": 16.26,
+          "text": "entonces"
+        },
+        {
+          "t": 19.34,
+          "text": "no?"
+        }
+      ]
+    },
+    "pitch": {
+      "median_f0_hz": 103,
+      "std_semitones": 1.44,
+      "range_p10_p90_semitones": 3.6,
+      "monotone": true,
+      "monotone_stretches": [
+        {
+          "t": 0.0,
+          "end": 20.0
+        }
+      ]
+    },
+    "volume": {
+      "mean_dbfs": -21.4,
+      "std_between_words_db": 2.6,
+      "range_p10_p90_db": 5.3,
+      "low_variation": true
+    },
+    "segments": [
+      {
+        "t": 0.0,
+        "end": 3.74,
+        "text": "Bueno, eh, hoy quiero hablarles de un tema importante."
+      },
+      {
+        "t": 4.56,
+        "end": 9.18,
+        "text": "O sea, la forma en que comunicamos nuestras ideas cambia todo."
+      },
+      {
+        "t": 9.64,
+        "end": 15.01,
+        "text": "Este, cuando hablamos en público, mmm, muchas veces nos ponemos nerviosos."
+      },
+      {
+        "t": 16.26,
+        "end": 22.3,
+        "text": "Entonces, la clave está en practicar, ¿no? Y practicar con datos concretos."
+      }
+    ],
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

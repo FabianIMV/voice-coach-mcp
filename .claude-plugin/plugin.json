@@ -1,0 +1,37 @@
+{
+  "name": "voice-coach",
+  "displayName": "Voice Coach",
+  "version": "0.1.0",
+  "description": "Gives Claude ears: local pitch, pronunciation and public-speaking analysis plus a coaching skill that runs sessions and tracks your progress.",
+  "author": {
+    "name": "FabianIMV",
+    "url": "https://github.com/FabianIMV"
+  },
+  "homepage": "https://github.com/FabianIMV/voice-coach-mcp",
+  "repository": "https://github.com/FabianIMV/voice-coach-mcp",
+  "license": "MIT",
+  "keywords": [
+    "voice",
+    "singing",
+    "pitch",
+    "pronunciation",
+    "public-speaking",
+    "coach",
+    "mcp"
+  ],
+  "mcpServers": {
+    "voice-coach": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "--extra",
+        "speech",
+        "--extra",
+        "pronunciation",
+        "voice-coach-mcp"
+      ]
+    }
+  }
+}

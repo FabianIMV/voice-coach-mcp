@@ -1,0 +1,14 @@
+.git/
+.github/
+.venv/
+.pytest_cache/
+.ruff_cache/
+**/__pycache__/
+dist/
+tests/
+examples/
+*.mcpb
+*.zip
+.claude-plugin/
+server.json
+CONTRIBUTING.md

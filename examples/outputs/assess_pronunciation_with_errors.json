@@ -1,0 +1,125 @@
+{
+  "call": {
+    "tool": "assess_pronunciation",
+    "arguments": {
+      "audio": "examples/audio/pronunciation_errors.wav",
+      "expected_text": "I think the very best things in life are free."
+    }
+  },
+  "response": {
+    "audio": "examples/audio/pronunciation_errors.wav",
+    "duration_s": 3.26,
+    "language": "en-US",
+    "backend": "wav2vec2-local",
+    "summary": {
+      "overall_score": 90,
+      "words": 10,
+      "words_with_errors": 3,
+      "errors": {
+        "substitution": 3,
+        "deletion": 0,
+        "insertion": 0
+      },
+      "frequent_confusions": [
+        {
+          "expected": "θ",
+          "detected": "s",
+          "count": 2
+        },
+        {
+          "expected": "v",
+          "detected": "b",
+          "count": 1
+        }
+      ]
+    },
+    "words": [
+      {
+        "word": "I",
+        "score": 100,
+        "t": 0.36
+      },
+      {
+        "word": "think",
+        "score": 75,
+        "t": 0.56,
+        "expected": "θ ɪ ŋ k",
+        "detected": "s ɪ ŋ k",
+        "errors": [
+          {
+            "type": "substitution",
+            "expected": "θ",
+            "detected": "s"
+          }
+        ]
+      },
+      {
+        "word": "the",
+        "score": 100,
+        "t": 0.84
+      },
+      {
+        "word": "very",
+        "score": 75,
+        "t": 0.96,
+        "expected": "v ɛ ɹ i",
+        "detected": "b ɛ ɹ i",
+        "errors": [
+          {
+            "type": "substitution",
+            "expected": "v",
+            "detected": "b"
+          }
+        ]
+      },
+      {
+        "word": "best",
+        "score": 100,
+        "t": 1.28
+      },
+      {
+        "word": "things",
+        "score": 75,
+        "t": 1.64,
+        "expected": "θ ɪ ŋ z",
+        "detected": "s ɪ ŋ z",
+        "errors": [
+          {
+            "type": "substitution",
+            "expected": "θ",
+            "detected": "s"
+          }
+        ]
+      },
+      {
+        "word": "in",
+        "score": 100,
+        "t": 1.96
+      },
+      {
+        "word": "life",
+        "score": 100,
+        "t": 2.1
+      },
+      {
+        "word": "are",
+        "score": 100,
+        "t": 2.38
+      },
+      {
+        "word": "free",
+        "score": 100,
+        "t": 2.56
+      }
+    ],
+    "phonemes": {
+      "expected": "aɪ θ ɪ ŋ k ð ə v ɛ ɹ i b ɛ s t θ ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː",
+      "detected": "aɪ s ɪ ŋ k ð ə b ɛ ɹ i b ɛ s t s ɪ ŋ z ɪ n l aɪ f ɑː ɹ f ɹ iː"
+    },
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

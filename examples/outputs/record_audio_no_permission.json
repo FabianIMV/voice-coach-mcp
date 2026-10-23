@@ -1,0 +1,36 @@
+{
+  "note": "Simulated input device (the environment that generated this has no microphone).",
+  "call": {
+    "tool": "record_audio",
+    "arguments": {
+      "seconds": 3,
+      "name": "take"
+    }
+  },
+  "response": {
+    "audio": "~/VoiceCoach/recordings/take-2.wav",
+    "duration_s": 3.0,
+    "sample_rate": 16000,
+    "device": "Fake microphone",
+    "levels": {
+      "peak_dbfs": -120.0,
+      "rms_dbfs": -120.0,
+      "snr_db": null,
+      "clipping_pct": 0.0
+    },
+    "confidence": {
+      "value": 0.0,
+      "level": "low"
+    },
+    "warnings": [
+      {
+        "code": "no_microphone_permission",
+        "detail": "macOS is not delivering microphone audio. Open System Settings → Privacy & Security → Microphone and enable the app running the server (Claude, or the terminal where Claude Code runs); then restart that app."
+      },
+      {
+        "code": "digital_silence",
+        "detail": "The audio is pure digital silence (all zeros)."
+      }
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check that every manifest matches the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for file in manifest.json server.json .claude-plugin/plugin.json; do
+            test "$(jq -r .version "$file")" = "$VERSION" || { echo "::error::$file is not $VERSION"; exit 1; }
+          done
+          test "$(jq -r '.packages[0].version' server.json)" = "$VERSION"
+          grep -q "^version = \"$VERSION\"" pyproject.toml || { echo "::error::pyproject.toml is not $VERSION"; exit 1; }
+          grep -q "__version__ = \"$VERSION\"" src/voice_coach_mcp/__init__.py || { echo "::error::__init__.py is not $VERSION"; exit 1; }
+      - name: Build the Python package
+        run: uv build --out-dir dist/pypi
+      - name: Build the skill zip and the Claude Desktop extension
+        run: |
+          mkdir -p dist/assets
+          uv run voice-coach-mcp package-skill dist/assets/voice-coach-skill.zip
+          npx -y @anthropic-ai/mcpb@2.1.2 pack . dist/assets/voice-coach.mcpb
+          (cd dist/assets && sha256sum * > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # trusted publishing, no token needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/pypi/
+
+  github-release:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes dist/assets/* dist/pypi/*
+
+  mcp-registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # GitHub OIDC login to the MCP Registry
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

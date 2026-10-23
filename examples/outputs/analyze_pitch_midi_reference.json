@@ -1,0 +1,151 @@
+{
+  "call": {
+    "tool": "analyze_pitch",
+    "arguments": {
+      "audio": "examples/audio/sung_melody.wav",
+      "reference_midi": "examples/audio/reference_melody.mid"
+    }
+  },
+  "response": {
+    "audio": "examples/audio/sung_melody.wav",
+    "duration_s": 9.55,
+    "mode": "midi_reference",
+    "summary": {
+      "notes": 11,
+      "range": "D3–B3",
+      "pct_within_25_cents": 81.8,
+      "mean_deviation_cents": -0.2,
+      "mean_abs_deviation_cents": 8.2,
+      "tendency": "centered",
+      "drift_cents": 15.9,
+      "stability": {
+        "stable": 9,
+        "vibrato": 1,
+        "unstable": 1
+      },
+      "reference_notes": 11,
+      "missed": 0,
+      "extra_notes": 0,
+      "wrong_notes": 0,
+      "onsets": {
+        "on_time": 10,
+        "late": 1,
+        "early": 0
+      },
+      "octave_shift": -1,
+      "start_offset_ms": 1003,
+      "relative_tempo": 0.999,
+      "midi_track": "0: Melody"
+    },
+    "notes": [
+      {
+        "t": 1.0,
+        "dur": 0.46,
+        "expected": "G3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -7,
+        "onset": "on_time"
+      },
+      {
+        "t": 1.48,
+        "dur": 0.5,
+        "expected": "A3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -23,
+        "onset": "on_time"
+      },
+      {
+        "t": 1.99,
+        "dur": 0.97,
+        "expected": "B3",
+        "cents": -33,
+        "stability": "stable",
+        "onset_ms": -13,
+        "onset": "on_time"
+      },
+      {
+        "t": 2.99,
+        "dur": 0.48,
+        "expected": "A3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -12,
+        "onset": "on_time"
+      },
+      {
+        "t": 3.48,
+        "dur": 0.48,
+        "expected": "G3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -22,
+        "onset": "on_time"
+      },
+      {
+        "t": 4.14,
+        "dur": 0.83,
+        "expected": "E3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": 134,
+        "onset": "late"
+      },
+      {
+        "t": 4.99,
+        "dur": 0.5,
+        "expected": "D3",
+        "cents": 36,
+        "stability": "unstable",
+        "std_cents": 28,
+        "drift_cents": -25,
+        "onset_ms": -11,
+        "onset": "on_time"
+      },
+      {
+        "t": 5.49,
+        "dur": 0.47,
+        "expected": "E3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -11,
+        "onset": "on_time"
+      },
+      {
+        "t": 6.01,
+        "dur": 0.47,
+        "expected": "G3",
+        "cents": 18,
+        "stability": "stable",
+        "onset_ms": 5,
+        "onset": "on_time"
+      },
+      {
+        "t": 6.48,
+        "dur": 0.48,
+        "expected": "A3",
+        "cents": 0,
+        "stability": "stable",
+        "onset_ms": -20,
+        "onset": "on_time"
+      },
+      {
+        "t": 6.98,
+        "dur": 1.98,
+        "expected": "G3",
+        "cents": 2,
+        "stability": "vibrato",
+        "vibrato_hz": 5.5,
+        "vibrato_pp_cents": 75,
+        "onset_ms": -20,
+        "onset": "on_time"
+      }
+    ],
+    "confidence": {
+      "value": 1.0,
+      "level": "high"
+    },
+    "warnings": []
+  }
+}

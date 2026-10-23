@@ -23,15 +23,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Dependencias del sistema (Linux)
+      - name: System dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libportaudio2 ffmpeg
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked
       - run: uv run pytest
 
-  modelos:
-    # Modelos reales sobre voz sintética: Whisper tiny (espeak-ng) y wav2vec2 de fonemas (Piper).
+  models:
+    # Real models on synthetic speech: Whisper tiny (espeak-ng) and the wav2vec2 phoneme model (Piper).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +42,6 @@ jobs:
           path: |
             ~/.cache/huggingface
             ~/.cache/voice-coach-tests
-          key: modelos-${{ hashFiles('src/voice_coach_mcp/pronunciacion/wav2vec2.py', 'tests/tts.py') }}
-      - run: uv sync --locked --extra habla --extra pronunciacion
-      - run: uv run pytest -m modelos
+          key: models-${{ hashFiles('src/voice_coach_mcp/pronunciation/wav2vec2.py', 'tests/tts.py') }}
+      - run: uv sync --locked --extra speech --extra pronunciation
+      - run: uv run pytest -m models

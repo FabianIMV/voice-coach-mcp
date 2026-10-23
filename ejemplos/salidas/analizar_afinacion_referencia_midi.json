@@ -1,0 +1,151 @@
+{
+  "llamada": {
+    "tool": "analizar_afinacion",
+    "argumentos": {
+      "audio": "ejemplos/audio/melodia_cantada.wav",
+      "referencia_midi": "ejemplos/audio/melodia_referencia.mid"
+    }
+  },
+  "respuesta": {
+    "audio": "ejemplos/audio/melodia_cantada.wav",
+    "duracion_s": 9.55,
+    "modo": "referencia_midi",
+    "resumen": {
+      "notas": 11,
+      "rango": "D3–B3",
+      "porcentaje_dentro_25_cents": 81.8,
+      "desviacion_media_cents": -0.2,
+      "desviacion_abs_media_cents": 8.2,
+      "tendencia": "centrado",
+      "deriva_cents": 15.9,
+      "estabilidad": {
+        "estable": 9,
+        "vibrato": 1,
+        "inestable": 1
+      },
+      "notas_referencia": 11,
+      "omitidas": 0,
+      "notas_extra": 0,
+      "notas_incorrectas": 0,
+      "entradas": {
+        "a_tiempo": 10,
+        "tarde": 1,
+        "temprano": 0
+      },
+      "transposicion_octavas": -1,
+      "desfase_inicio_ms": 1003,
+      "tempo_relativo": 0.999,
+      "pista_midi": "0: Melodia"
+    },
+    "notas": [
+      {
+        "t": 1.0,
+        "dur": 0.46,
+        "esperada": "G3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -7,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 1.48,
+        "dur": 0.5,
+        "esperada": "A3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -23,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 1.99,
+        "dur": 0.97,
+        "esperada": "B3",
+        "cents": -33,
+        "estabilidad": "estable",
+        "entrada_ms": -13,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 2.99,
+        "dur": 0.48,
+        "esperada": "A3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -12,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 3.48,
+        "dur": 0.48,
+        "esperada": "G3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -22,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 4.14,
+        "dur": 0.83,
+        "esperada": "E3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": 134,
+        "entrada": "tarde"
+      },
+      {
+        "t": 4.99,
+        "dur": 0.5,
+        "esperada": "D3",
+        "cents": 36,
+        "estabilidad": "inestable",
+        "desv_cents": 28,
+        "deriva_cents": -25,
+        "entrada_ms": -11,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 5.49,
+        "dur": 0.47,
+        "esperada": "E3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -11,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 6.01,
+        "dur": 0.47,
+        "esperada": "G3",
+        "cents": 18,
+        "estabilidad": "estable",
+        "entrada_ms": 5,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 6.48,
+        "dur": 0.48,
+        "esperada": "A3",
+        "cents": 0,
+        "estabilidad": "estable",
+        "entrada_ms": -20,
+        "entrada": "a_tiempo"
+      },
+      {
+        "t": 6.98,
+        "dur": 1.98,
+        "esperada": "G3",
+        "cents": 2,
+        "estabilidad": "vibrato",
+        "vibrato_hz": 5.5,
+        "vibrato_pp_cents": 75,
+        "entrada_ms": -20,
+        "entrada": "a_tiempo"
+      }
+    ],
+    "confianza": {
+      "valor": 1.0,
+      "nivel": "alta"
+    },
+    "advertencias": []
+  }
+}

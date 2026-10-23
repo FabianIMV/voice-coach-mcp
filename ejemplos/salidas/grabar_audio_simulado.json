@@ -1,0 +1,27 @@
+{
+  "nota": "Dispositivo de entrada simulado (este entorno no tiene micrófono).",
+  "llamada": {
+    "tool": "grabar_audio",
+    "argumentos": {
+      "segundos": 3,
+      "nombre": "toma"
+    }
+  },
+  "respuesta": {
+    "audio": "~/VoiceCoach/grabaciones/toma.wav",
+    "duracion_s": 3.0,
+    "sample_rate": 16000,
+    "dispositivo": "Micrófono falso",
+    "niveles": {
+      "pico_dbfs": -10.5,
+      "rms_dbfs": -14.3,
+      "snr_db": 60.0,
+      "clipping_pct": 0.0
+    },
+    "confianza": {
+      "valor": 1.0,
+      "nivel": "alta"
+    },
+    "advertencias": []
+  }
+}

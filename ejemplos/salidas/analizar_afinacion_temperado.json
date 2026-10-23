@@ -1,0 +1,92 @@
+{
+  "llamada": {
+    "tool": "analizar_afinacion",
+    "argumentos": {
+      "audio": "ejemplos/audio/escala_do_mayor.wav"
+    }
+  },
+  "respuesta": {
+    "audio": "ejemplos/audio/escala_do_mayor.wav",
+    "duracion_s": 7.36,
+    "modo": "temperado",
+    "resumen": {
+      "notas": 8,
+      "rango": "C4–C5",
+      "porcentaje_dentro_25_cents": 75.0,
+      "desviacion_media_cents": -7.8,
+      "desviacion_abs_media_cents": 13.6,
+      "tendencia": "centrado",
+      "deriva_cents": -1.0,
+      "estabilidad": {
+        "estable": 7,
+        "vibrato": 1,
+        "inestable": 0
+      }
+    },
+    "notas": [
+      {
+        "t": 0.4,
+        "dur": 0.62,
+        "nota": "C4",
+        "cents": 0,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 1.12,
+        "dur": 0.62,
+        "nota": "D4",
+        "cents": -8,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 1.84,
+        "dur": 0.62,
+        "nota": "E4",
+        "cents": -30,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 2.56,
+        "dur": 0.62,
+        "nota": "F4",
+        "cents": 5,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 3.28,
+        "dur": 0.62,
+        "nota": "G4",
+        "cents": 22,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 4.0,
+        "dur": 0.62,
+        "nota": "A4",
+        "cents": -15,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 4.72,
+        "dur": 0.62,
+        "nota": "B4",
+        "cents": -42,
+        "estabilidad": "estable"
+      },
+      {
+        "t": 5.44,
+        "dur": 1.43,
+        "nota": "C5",
+        "cents": -2,
+        "estabilidad": "vibrato",
+        "vibrato_hz": 5.5,
+        "vibrato_pp_cents": 84
+      }
+    ],
+    "confianza": {
+      "valor": 1.0,
+      "nivel": "alta"
+    },
+    "advertencias": []
+  }
+}

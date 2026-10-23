@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Servidor MCP que analiza audio (afinación, pronunciación, discurso) para que Claude actúe como coach de voz."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-license = { text = "MIT" }
 dependencies = [
     "mcp>=2.3,<3",
     "numpy>=1.26",
@@ -44,3 +43,12 @@ ignore = ["E501"]  # el formateador controla el largo; los textos largos se perm
 testpaths = ["tests"]
 markers = ["modelos: tests que descargan y ejecutan modelos pesados (whisper, wav2vec2)"]
 addopts = "-m 'not modelos'"
+
+# En Linux (CI) se usa la variante de torch solo-CPU, mucho más liviana; en macOS, la de PyPI.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

@@ -38,3 +38,23 @@ def test_recorta_por_prioridad_y_guarda_detalle(config, tmp_path):
 
 def test_tamano_cuenta_bytes_utf8():
     assert tamano("ñ") == len('"ñ"'.encode())
+
+
+def test_recorta_listas_anidadas_y_textos(config, tmp_path):
+    resultado = {
+        "texto": "palabra " * 400,
+        "pausas": {"cantidad": 50, "lista": [{"t": i, "dur": i / 10} for i in range(50)]},
+    }
+    texto = ajustar(
+        resultado,
+        audio=tmp_path / "b.wav",
+        tool="discurso",
+        config=config,
+        recortables=[Recortable("pausas.lista", lambda p: p["dur"]), "texto"],
+    )
+    salida = json.loads(texto)
+    assert len(texto.encode()) <= config.max_bytes_respuesta
+    assert salida["pausas"]["lista"] == []
+    assert salida["pausas"]["lista_mostradas"] == "0 de 50"
+    assert salida["texto"].endswith("…") and len(salida["texto"]) > 100
+    assert resultado["pausas"]["lista"][0] == {"t": 0, "dur": 0.0}  # no muta el original

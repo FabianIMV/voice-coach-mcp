@@ -2,6 +2,9 @@
 
 Las tools de análisis se llaman a través del servidor real por stdio (como lo haría Claude).
 `grabar_audio` necesita un micrófono: aquí se ejecuta en proceso con un dispositivo simulado.
+La voz de los ejemplos de habla se sintetiza con espeak-ng y la de pronunciación con Piper (voz
+LJSpeech, de dominio público; se ejecuta con uvx). Requiere `espeak-ng` y los extras `habla` y
+`pronunciacion`.
 
 Uso: uv run python ejemplos/generar_ejemplos.py
 """
@@ -20,11 +23,28 @@ from mcp.client.stdio import StdioServerParameters
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
-from tests import falso_sounddevice  # noqa: E402
+from tests import falso_sounddevice, tts  # noqa: E402
 from tests import sintetico as s  # noqa: E402
 
 AUDIO = RAIZ / "ejemplos" / "audio"
 SALIDAS = RAIZ / "ejemplos" / "salidas"
+
+DISCURSO_ES = (
+    'Bueno, eh, hoy quiero hablarles de un tema importante. <break time="1200ms"/> '
+    "O sea, la forma en que comunicamos nuestras ideas cambia todo. Este, cuando hablamos en "
+    'público, mmm, muchas veces nos ponemos nerviosos. <break time="900ms"/> Entonces, la '
+    "clave está en practicar, ¿no? Y practicar con datos concretos."
+)
+DISCURSO_EN = (
+    'Um, so today I want to talk about, uh, public speaking. <break time="1000ms"/> You know, '
+    "most people feel nervous, like, before a big talk. I mean, that is completely normal. "
+    '<break time="800ms"/> The key is to practice with real feedback.'
+)
+
+FRASE = "I think the very best things in life are free."
+FRASE_CON_ERRORES = (
+    "I sink the berry best sings in life are free."  # θ→s y v→b, típicos de hispanohablantes
+)
 
 # Melodía original de 8 compases simples (sin derechos), 0,5 s por negra.
 MELODIA = [
@@ -85,6 +105,12 @@ def preparar_audios() -> dict[str, Path]:
     rutas["cantada"] = s.guardar(
         AUDIO / "melodia_cantada.wav", s.con_ruido(np.concatenate(partes), 35)
     )
+    rutas["discurso_es"] = tts.sintetizar(DISCURSO_ES, "es", AUDIO / "discurso_es.wav")
+    rutas["discurso_en"] = tts.sintetizar(DISCURSO_EN, "en", AUDIO / "discurso_en.wav", 160)
+    rutas["pron_correcta"] = tts.sintetizar_piper(FRASE, AUDIO / "pronunciacion_correcta.wav")
+    rutas["pron_errores"] = tts.sintetizar_piper(
+        FRASE_CON_ERRORES, AUDIO / "pronunciacion_errores.wav"
+    )
     return rutas
 
 
@@ -101,18 +127,43 @@ async def llamar_por_stdio(rutas: dict[str, Path], temporal: str) -> dict[str, d
         env={**os.environ, "VOICE_COACH_DIR": temporal},
         cwd=str(RAIZ),
     )
-    llamadas = {
-        "analizar_afinacion_temperado": {"audio": str(rutas["escala"])},
-        "analizar_afinacion_tonalidad": {"audio": str(rutas["escala"]), "tonalidad": "Sol mayor"},
-        "analizar_afinacion_referencia_midi": {
-            "audio": str(rutas["cantada"]),
-            "referencia_midi": str(rutas["midi"]),
-        },
-    }
+    llamadas = [
+        ("analizar_afinacion_temperado", "analizar_afinacion", {"audio": str(rutas["escala"])}),
+        (
+            "analizar_afinacion_tonalidad",
+            "analizar_afinacion",
+            {"audio": str(rutas["escala"]), "tonalidad": "Sol mayor"},
+        ),
+        (
+            "analizar_afinacion_referencia_midi",
+            "analizar_afinacion",
+            {"audio": str(rutas["cantada"]), "referencia_midi": str(rutas["midi"])},
+        ),
+        ("transcribir_en", "transcribir", {"audio": str(rutas["discurso_en"])}),
+        (
+            "metricas_discurso_es",
+            "metricas_discurso",
+            {"audio": str(rutas["discurso_es"]), "idioma": "es"},
+        ),
+        (
+            "evaluar_pronunciacion_correcta",
+            "evaluar_pronunciacion",
+            {"audio": str(rutas["pron_correcta"]), "texto_esperado": FRASE},
+        ),
+        (
+            "evaluar_pronunciacion_con_errores",
+            "evaluar_pronunciacion",
+            {"audio": str(rutas["pron_errores"]), "texto_esperado": FRASE},
+        ),
+        (
+            "metricas_discurso_en",
+            "metricas_discurso",
+            {"audio": str(rutas["discurso_en"]), "idioma": "en"},
+        ),
+    ]
     salidas = {}
-    async with Client(servidor) as cliente:
-        for nombre, args in llamadas.items():
-            tool = nombre.split("_temperado")[0].split("_tonalidad")[0].split("_referencia")[0]
+    async with Client(servidor, read_timeout_seconds=600) as cliente:
+        for nombre, tool, args in llamadas:
             r = await cliente.call_tool(tool, args)
             texto = r.content[0].text
             print(f"{nombre}: {len(texto.encode())} bytes", file=sys.stderr)

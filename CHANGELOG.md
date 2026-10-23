@@ -15,6 +15,11 @@ All notable changes to this project are documented in this file. The format is b
 - Dropped the CPU-only PyTorch index from `pyproject.toml`: every dependency now comes from PyPI.
 - README: privacy and network access section; absolute links and image so it renders on PyPI.
 
+### Added
+
+- README screenshots of a real speaking session and a singing request in Claude Code.
+- `glama.json` so the maintainer can claim the server on Glama.
+
 ## [0.1.0] - 2026-10-23
 
 ### Added

@@ -6,6 +6,8 @@ pedagógico lo pone Claude (o la skill coach-de-voz), no el servidor.
 
 _CIERRE = """
 Reglas de la sesión:
+- Al empezar, llama a leer_progreso y retoma el foco de la última sesión; al terminar, registra la
+  sesión con registrar_progreso (fecha, ejercicio, métricas antes → después, foco siguiente).
 - Pide una grabación por intento y analízala antes de dar feedback; no adivines lo que no mediste.
 - Si la respuesta trae advertencias o confianza baja, dilo y propone repetir la toma antes de opinar.
 - Da como máximo un foco por intento, citando números y momentos concretos (segundos, nota, palabra).

@@ -1,0 +1,16 @@
+{
+  "llamada": {
+    "tool": "leer_progreso",
+    "argumentos": {
+      "entradas": 3
+    }
+  },
+  "respuesta": {
+    "archivo": "~/VoiceCoach/progreso.md",
+    "entradas_totales": 1,
+    "entradas_mostradas": 1,
+    "entradas": [
+      "## 2026-10-23 · Canto · Escala de Do mayor (intermedio)\n\n- **Objetivo**: afinar la parte aguda de la escala.\n- **Tomas**: 3 (`escala-do-toma1` … `toma3`)\n- **Métricas**: dentro de ±25 cents 62 % → 75 %; B4 −58 → −42 cents; E4 −30 cents sin cambio.\n- **Lo que mejoró**: la C5 final quedó centrada (−2 cents) con vibrato regular de 5,5 Hz.\n- **Foco siguiente**: B4 y E4 a menos de ±20 cents con notas tenidas en *ng*."
+    ]
+  }
+}

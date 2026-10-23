@@ -56,6 +56,16 @@ def _tomar(items: list[dict], n: int, prioridad: Callable[[dict], float]) -> lis
     return [items[i] for i in sorted(indices)]
 
 
+def _contenedor(salida: dict, ruta: str) -> tuple[dict, str]:
+    """Para "pausas.lista" devuelve (copia de salida["pausas"], "lista"), copiando por el camino."""
+    *padres, clave = ruta.split(".")
+    actual = salida
+    for padre in padres:
+        actual[padre] = dict(actual.get(padre) or {})
+        actual = actual[padre]
+    return actual, clave
+
+
 def ajustar(
     resultado: dict,
     *,
@@ -63,11 +73,14 @@ def ajustar(
     tool: str,
     config: Config,
     recortables: list[Recortable] = (),
+    textos: list[str] = (),
 ) -> str:
     """Devuelve el JSON del resultado dentro de `config.max_bytes_respuesta`.
 
     Si hay que recortar, el resultado completo se escribe en disco y se indica en
-    `detalle_completo`; cada lista recortada lleva `<clave>_mostradas: "n de total"`.
+    `detalle_completo`. Las listas se recortan en el orden dado (admiten rutas como
+    "pausas.lista") y cada una recortada lleva `<clave>_mostradas: "n de total"`. Si aún no
+    cabe, se acortan los textos indicados en `textos`.
     """
     limite = config.max_bytes_respuesta
     if tamano(resultado) <= limite:
@@ -75,27 +88,38 @@ def ajustar(
 
     destino = ruta_detalle(audio, tool, config)
     destino.write_text(json.dumps(resultado, ensure_ascii=False, indent=2), encoding="utf-8")
-
     salida = dict(resultado)
     salida["detalle_completo"] = str(destino)
-    originales = {r.clave: resultado.get(r.clave) or [] for r in recortables}
-    for r in recortables:
-        salida[f"{r.clave}_mostradas"] = f"{len(originales[r.clave])} de {len(originales[r.clave])}"
 
-    # Recorta las listas en orden: la primera se reduce primero; se busca el mayor n que quepa.
     for r in recortables:
-        items = originales[r.clave]
         if tamano(salida) <= limite:
             break
+        contenedor, clave = _contenedor(salida, r.clave)
+        items = contenedor.get(clave) or []
         bajo, alto = 0, len(items)
-        while bajo < alto:
+        while bajo < alto:  # mayor n que quepa
             medio = (bajo + alto + 1) // 2
-            salida[r.clave] = _tomar(items, medio, r.prioridad)
-            salida[f"{r.clave}_mostradas"] = f"{medio} de {len(items)}"
+            contenedor[clave] = _tomar(items, medio, r.prioridad)
+            contenedor[f"{clave}_mostradas"] = f"{medio} de {len(items)}"
             if tamano(salida) <= limite:
                 bajo = medio
             else:
                 alto = medio - 1
-        salida[r.clave] = _tomar(items, bajo, r.prioridad)
-        salida[f"{r.clave}_mostradas"] = f"{bajo} de {len(items)}"
+        contenedor[clave] = _tomar(items, bajo, r.prioridad)
+        contenedor[f"{clave}_mostradas"] = f"{bajo} de {len(items)}"
+
+    for ruta in textos:
+        if tamano(salida) <= limite:
+            break
+        contenedor, clave = _contenedor(salida, ruta)
+        texto = contenedor.get(clave) or ""
+        bajo, alto = 0, len(texto)
+        while bajo < alto:
+            medio = (bajo + alto + 1) // 2
+            contenedor[clave] = texto[:medio] + "…"
+            if tamano(salida) <= limite:
+                bajo = medio
+            else:
+                alto = medio - 1
+        contenedor[clave] = texto[:bajo] + "…"
     return a_json(salida)

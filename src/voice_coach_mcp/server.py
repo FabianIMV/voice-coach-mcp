@@ -13,6 +13,7 @@ from .audio.grabacion import grabar
 from .canto.afinacion import analizar
 from .config import cargar_config
 from .errores import ErrorUsuario
+from .habla.discurso import analizar_discurso, analizar_transcripcion
 from .salida import a_json
 
 log = logging.getLogger("voice_coach_mcp")
@@ -109,6 +110,47 @@ async def analizar_afinacion(
             pista_midi=pista_midi,
         )
     )
+
+
+@mcp.tool()
+@_errores_legibles
+async def transcribir(audio: str, idioma: str | None = None) -> str:
+    """Transcribe un audio con timestamps (faster-whisper, local).
+
+    Args:
+        audio: ruta del audio o nombre devuelto por grabar_audio.
+        idioma: "es", "en", "en-US", "español"…; si se omite, se detecta.
+
+    Devuelve `idioma`, `prob_idioma`, `texto`, `segmentos` [{t, fin, texto}] y `palabras`
+    [{p, t, fin}]. Si no cabe, primero se omiten palabras y luego segmentos (todo queda en
+    `detalle_completo`). La primera llamada descarga el modelo (VOICE_COACH_WHISPER_MODEL).
+    """
+    config = cargar_config()
+    return await anyio.to_thread.run_sync(analizar_transcripcion, audio, config, idioma)
+
+
+@mcp.tool()
+@_errores_legibles
+async def metricas_discurso(audio: str, idioma: str, umbral_pausa_s: float = 0.7) -> str:
+    """Mide ritmo, pausas, muletillas y variación de tono y volumen de un discurso.
+
+    Args:
+        audio: ruta del audio o nombre devuelto por grabar_audio.
+        idioma: idioma del discurso ("es" o "en"; las listas de muletillas existen para ambos).
+        umbral_pausa_s: silencio mínimo entre palabras para contar una pausa larga.
+
+    Devuelve:
+    - `ritmo`: palabras, tiempo_habla_s, palabras_por_minuto, ppm_sin_pausas_largas.
+    - `pausas`: cantidad, total_s, max_s, por_minuto y lista [{t, dur, tras: palabra previa}].
+    - `muletillas`: total, por_minuto, por_tipo y ocurrencias [{t, texto}]. Las palabras
+      ambiguas ("este", "like") solo cuentan aisladas por coma o pausa.
+    - `tono`: f0_mediana_hz, desv_semitonos, rango_p10_p90_semitonos, monotono (desv < 2 st) y
+      tramos_monotonos [{t, fin}] en ventanas de 8 s.
+    - `volumen`: media_dbfs, desv_entre_palabras_db, rango_p10_p90_db, variacion_baja (desv < 3 dB).
+    - `segmentos` de la transcripción [{t, fin, texto}].
+    """
+    config = cargar_config()
+    return await anyio.to_thread.run_sync(analizar_discurso, audio, config, idioma, umbral_pausa_s)
 
 
 @mcp.prompt()

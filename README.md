@@ -14,6 +14,7 @@
   <a href="https://github.com/FabianIMV/voice-coach-mcp/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-blue.svg">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-server-7c3aed.svg">
+  <a href="https://mcprush.com/to/voice-coach-mcp?ref=badge"><img alt="Voice Coach MCP server" src="https://mcprush.com/badge/voice-coach-mcp/card.svg"></a>
 </p>
 
 <!-- mcp-name: io.github.FabianIMV/voice-coach-mcp -->
